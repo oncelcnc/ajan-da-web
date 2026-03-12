@@ -23,18 +23,17 @@ function applyTheme(theme) {
 const isNative = () => !!(window.Capacitor?.isNativePlatform?.());
 
 async function takePhoto() {
-  const { Camera } = await import('@capacitor/camera');
-  const photo = await Camera.getPhoto({
-    quality: 90,
-    allowEditing: false,
-    resultType: 'base64',
-    source: 'CAMERA',
-    presentationStyle: 'fullscreen',
-    saveToGallery: false,
+  const { BarcodeScanner, BarcodeFormat } = await import('@capacitor-mlkit/barcode-scanning');
+  
+  await BarcodeScanner.requestPermissions();
+  
+  const { barcodes } = await BarcodeScanner.scan({
+    formats: [BarcodeFormat.QrCode]
   });
-  const res = await fetch(`data:image/jpeg;base64,${photo.base64String}`);
-  const blob = await res.blob();
-  return new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+  
+  if (barcodes.length === 0) throw new Error('QR bulunamadı');
+  
+  return barcodes[0].rawValue; // QR içeriğini direkt döndür
 }
 
 // ─────────────────────────────────────────────
