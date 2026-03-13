@@ -243,6 +243,7 @@ function TemplateNotes({ data, empty }) {
 }
 
 function TemplateMonthly({ data, empty }) {
+  const markedDays = data?.marked_days || [];
   return (
     <div className="template-monthly">
       <div className="tpl-header">🗓 Aylık Takvim</div>
@@ -251,9 +252,15 @@ function TemplateMonthly({ data, empty }) {
         {["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(d => (
           <div key={d} className="tpl-month-header">{d}</div>
         ))}
-        {Array.from({ length: 35 }).map((_, i) => (
-          <div key={i} className="tpl-month-day">{i < 31 ? i + 1 : ""}</div>
-        ))}
+        {Array.from({ length: 35 }).map((_, i) => {
+          const day = i + 1;
+          const isMarked = day <= 31 && markedDays.includes(day);
+          return (
+            <div key={i} className={"tpl-month-day" + (isMarked ? " marked" : "")}>
+              {day <= 31 ? day : ""}
+            </div>
+          );
+        })}
       </div>
       {empty && <div className="tpl-empty-hint">Fotoğraflandıktan sonra dolacak</div>}
     </div>
@@ -770,6 +777,7 @@ const styles = `
   .tpl-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 8px 0; }
   .tpl-month-header { font-size: 8px; color: var(--warm); font-weight: 600; text-align: center; padding: 2px; }
   .tpl-month-day { font-size: 9px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 16px; border-radius: 2px; }
+  .tpl-month-day.marked { background: #ffeb3b; font-weight: 700; color: var(--ink); border-color: #f9a825; }
   .tpl-lines { display: flex; flex-direction: column; gap: 8px; }
   .tpl-line { height: 1px; background: var(--border); }
   .tpl-cover { border-radius: 8px; padding: 20px; color: white; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
