@@ -278,22 +278,57 @@ function TemplateCover({ data, empty, themeColor }) {
   );
 }
 
-function PageTemplate({ type, data, empty, themeColor }) {
+function RegionComponent({ type, data, empty, themeColor }) {
   const props = { data, empty, themeColor };
   switch (type) {
-    case "todo":      return <TemplateTodo {...props} />;
-    case "daily":     return <TemplateDaily {...props} />;
-    case "goals":     return <TemplateGoals {...props} />;
-    case "shopping":  return <TemplateShopping {...props} />;
-    case "habit":     return <TemplateHabit {...props} />;
-    case "gratitude": return <TemplateGratitude {...props} />;
-    case "mood":      return <TemplateMood {...props} />;
-    case "water":     return <TemplateWater {...props} />;
-    case "weekly":    return <TemplateWeekly {...props} />;
-    case "monthly":   return <TemplateMonthly {...props} />;
-    case "cover":     return <TemplateCover {...props} />;
-    default:          return <TemplateNotes {...props} />;
+    case "todo":
+    case "todos":        return <TemplateTodo {...props} />;
+    case "daily":        return <TemplateDaily {...props} />;
+    case "goals":        return <TemplateGoals {...props} />;
+    case "shopping":     return <TemplateShopping {...props} />;
+    case "habit":
+    case "habits":       return <TemplateHabit {...props} />;
+    case "gratitude":    return <TemplateGratitude {...props} />;
+    case "mood":
+    case "mood_water":   return <TemplateMood {...props} />;
+    case "water":        return <TemplateWater {...props} />;
+    case "weekly":
+    case "weekly_days":
+    case "weekly_summary": return <TemplateWeekly {...props} />;
+    case "monthly":      return <TemplateMonthly {...props} />;
+    case "cover":        return <TemplateCover {...props} />;
+    case "priorities":
+    case "schedule":
+    case "wins":
+    case "next_goals":
+    case "reflection":
+    case "header":       return <TemplateNotes {...props} />;
+    default:              return <TemplateNotes {...props} />;
   }
+}
+
+function PageTemplate({ type, data, empty, themeColor }) {
+  // Çok bölgeli sayfa
+  if (data?.regions && Object.keys(data.regions).length > 1) {
+    return (
+      <div className="multi-region">
+        {Object.entries(data.regions).map(([rid, region]) => (
+          <div key={rid} className="region-block">
+            <div className="region-label">{region.label}</div>
+            <RegionComponent
+              type={region.type}
+              data={region.data}
+              empty={empty || !region.data}
+              themeColor={themeColor}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // Tek bölge — eski davranış
+  const props = { data, empty, themeColor };
+  return <RegionComponent type={type} {...props} />;
 }
 
 // ─── Confirm Modal ────────────────────────────────────────────────────
@@ -496,7 +531,12 @@ export default function App() {
   };
 
   const renderPageCard = (pageData) => {
-    const tplType = pageData.template_type || pageData.template?.type || "notes";
+    const regions = pageData.template?.regions;
+    const firstRegion = regions?.[0];
+    const tplType = pageData.template_type ||
+      (pageData.template_data?.regions
+        ? "multi"
+        : firstRegion?.type || "notes");
     const tplData = pageData.template_data;
     const isEmpty = pageData.is_empty || !tplData;
     return (
@@ -530,8 +570,10 @@ export default function App() {
     const allPages = Object.entries(template).map(([pageNo, tpl]) => {
       const no = parseInt(pageNo);
       const filled = filledMap[no];
+      const firstRegion = tpl.regions?.[0];
+      const tplType = firstRegion?.type || tpl.type || "notes";
       if (filled) return { ...filled, template: tpl };
-      return { page_no: no, template: tpl, template_type: tpl.type, template_data: null, is_empty: true, image_url: null };
+      return { page_no: no, template: tpl, template_type: tplType, template_data: null, is_empty: true, image_url: null };
     });
 
     allPages.sort((a, b) => a.page_no - b.page_no);
@@ -556,7 +598,10 @@ export default function App() {
   }
 
   if (activePage) {
-    const tplType = activePage.template_type || activePage.template?.type || "notes";
+    const activeRegions = activePage.template?.regions;
+    const firstActiveRegion = activeRegions?.[0];
+    const tplType = activePage.template_type ||
+      (activePage.template_data?.regions ? "multi" : firstActiveRegion?.type || "notes");
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
@@ -786,6 +831,9 @@ const styles = `
   .tpl-cover-date { font-size: 10px; opacity: 0.6; margin-top: 4px; }
   .tpl-cover-hint { font-size: 11px; opacity: 0.7; margin-top: 8px; }
   .tpl-item { font-size: 12px; margin-bottom: 3px; }
+  .multi-region { display: flex; flex-direction: column; gap: 6px; }
+  .region-block { border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: var(--soft); }
+  .region-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
   .overlay-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(26,21,18,0.95); color: white; padding: 40px; }
   .overlay-icon { font-size: 64px; }
   .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
