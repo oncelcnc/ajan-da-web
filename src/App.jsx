@@ -433,7 +433,7 @@ export default function App() {
         const data = await res.json();
         if (!res.ok) {
           if (res.status === 409) {
-            if (!confirm(`Sayfa ${data.detail?.match(/\d+/)?.[0]} zaten kayıtlı. Üzerine yazmak ister misin?`)) {
+           if (!window.confirm(`Sayfa zaten kayıtlı. Üzerine yazmak ister misin?`)) {
               setLoading(false); return;
             }
             const res2 = await fetch(`${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}&force=true`, {
