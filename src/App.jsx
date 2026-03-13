@@ -1,479 +1,914 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Lock, LogOut, Search, BarChart2, BookOpen, FileText, Image, ChevronRight, Plus } from 'lucide-react';
-import HTMLFlipBook from 'react-pageflip';
-import './App.css';
+import { useState, useEffect, useRef } from "react";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 
-const API = 'https://ajan-da-backend-production.up.railway.app';
+const API = "https://ajan-da-backend-production.up.railway.app";
 
-// ─────────────────────────────────────────────
-// Dinamik tema
-// ─────────────────────────────────────────────
-function applyTheme(theme) {
-  if (!theme) return;
-  document.documentElement.style.setProperty('--bg', theme.bg);
-  document.documentElement.style.setProperty('--card', theme.card);
-  document.documentElement.style.setProperty('--accent', theme.accent);
-  document.documentElement.style.setProperty('--text', theme.text);
-  document.documentElement.style.setProperty('--line', theme.page_line_color);
-}
+// ─── Şablon bileşenleri ───────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// Capacitor kamera — direkt lens, galeri yok
-// ─────────────────────────────────────────────
-const isNative = () => !!(window.Capacitor?.isNativePlatform?.());
-
-async function takePhoto() {
-  const { BarcodeScanner, BarcodeFormat } = await import('@capacitor-mlkit/barcode-scanning');
-  
-  await BarcodeScanner.requestPermissions();
-  
-  const { barcodes } = await BarcodeScanner.scan({
-    formats: [BarcodeFormat.QrCode]
-  });
-  
-  if (barcodes.length === 0) throw new Error('QR bulunamadı');
-  
-  return barcodes[0].rawValue; // QR içeriğini direkt döndür
-}
-
-// ─────────────────────────────────────────────
-// Sayfa içeriği
-// ─────────────────────────────────────────────
-const PageContent = ({ item }) => {
-  const [viewMode, setViewMode] = useState('image');
-
-  if (!item.text && !item.image) {
-    return <span style={{ opacity: 0.2, fontSize: 13 }}>— boş —</span>;
-  }
-
+function TemplateTodo({ data, empty }) {
+  const items = data?.items || [];
   return (
-    <div className="page-content-wrap">
-      {item.text && item.image && (
-        <div className="toggle-row">
-          <button onClick={() => setViewMode('image')} className={`toggle-btn ${viewMode === 'image' ? 'active' : ''}`}>
-            <Image size={10} /> Resim
-          </button>
-          <button onClick={() => setViewMode('text')} className={`toggle-btn ${viewMode === 'text' ? 'active' : ''}`}>
-            <FileText size={10} /> Metin
-          </button>
+    <div className="template-todo">
+      <div className="tpl-header">✅ To-Do List</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Sayfayı fotoğraflayınca to-do listesi buraya gelecek</div>
+      ) : items.length === 0 ? (
+        <div className="tpl-empty-hint">İçerik bulunamadı</div>
+      ) : (
+        <ul className="tpl-todo-list">
+          {items.map((item, i) => (
+            <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
+              <span className="tpl-checkbox">{item.done ? "☑" : "☐"}</span>
+              <span>{item.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TemplateDaily({ data, empty }) {
+  if (empty) return (
+    <div className="template-daily">
+      <div className="tpl-header">📅 Günlük Plan</div>
+      <div className="tpl-empty-hint">Sayfayı fotoğraflayınca günlük planın buraya gelecek</div>
+    </div>
+  );
+  return (
+    <div className="template-daily">
+      <div className="tpl-header">📅 Günlük Plan</div>
+      {data?.date && <div className="tpl-date">{data.date}</div>}
+      {data?.priorities?.length > 0 && (
+        <div className="tpl-section">
+          <div className="tpl-section-title">Öncelikler</div>
+          {data.priorities.map((p, i) => (
+            <div key={i} className="tpl-priority-item">
+              <span className="tpl-num">{i + 1}</span> {p}
+            </div>
+          ))}
         </div>
       )}
-      <div className="page-body">
-        {(viewMode === 'image' || !item.text) && item.image && (
-          <img src={`${API}${item.image}`} alt={`Sayfa ${item.page}`} className="page-img"
-            onError={() => setViewMode('text')} />
-        )}
-        {(viewMode === 'text' || !item.image) && item.text && (
-          <div className="handwriting-text">{item.text}</div>
-        )}
-      </div>
+      {data?.schedule?.length > 0 && (
+        <div className="tpl-section">
+          <div className="tpl-section-title">Program</div>
+          {data.schedule.map((s, i) => (
+            <div key={i} className="tpl-schedule-item">{s}</div>
+          ))}
+        </div>
+      )}
+      {data?.notes?.length > 0 && (
+        <div className="tpl-section">
+          <div className="tpl-section-title">Notlar</div>
+          <div className="tpl-notes-text">{data.notes.join("\n")}</div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
-// ─────────────────────────────────────────────
-// Flipbook
-// ─────────────────────────────────────────────
-const DijitalAjanda = ({ theme, history, targetPage, isSearching }) => {
-  const bookRef = useRef();
-
-  const pagesArr = isSearching
-    ? history
-    : Array.from({ length: theme?.total_pages || 30 }, (_, i) => {
-        const note = history.find(n => parseInt(n.page) === i + 1);
-        return note ? { text: note.text, page: i + 1, image: note.image } : { text: '', page: i + 1, image: null };
-      });
-
-  useEffect(() => {
-    if (targetPage > 0 && bookRef.current) {
-      setTimeout(() => {
-        try { bookRef.current.pageFlip().turnToPage(isSearching ? 1 : parseInt(targetPage)); } catch {}
-      }, 400);
-    }
-  }, [targetPage, history, isSearching]);
-
+function TemplateGoals({ data, empty }) {
+  const goals = empty ? [] : Object.entries(data || {}).filter(([k]) => k.startsWith("goal_")).map(([, v]) => v).filter(Boolean);
   return (
-    <div className="flipbook-wrap">
-      <HTMLFlipBook width={480} height={620} size="fixed" showCover={true} ref={bookRef} className="notebook-shadow">
-        <div className="page cover-page" data-density="hard" style={{ background: theme?.cover_color || '#2d6a4f' }}>
-          <div className="cover-inner">
-            <div className="cover-year">2026</div>
-            <h1 className="cover-title">{theme?.name || 'AJANDA'}</h1>
-            <div className="cover-deco" />
-          </div>
-        </div>
-        {pagesArr.map((item, i) => (
-          <div key={i} className="page leaf-page">
-            <div className="leaf-inner">
-              <div className="leaf-header" style={{ borderColor: theme?.page_line_color }}>
-                <span>Ref: #{202600 + (item.page || i)}</span>
-                <span>SAYFA {item.page}</span>
-              </div>
-              <PageContent item={item} />
+    <div className="template-goals">
+      <div className="tpl-header">🎯 Hedefler</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Hedefleriniz fotoğraflandıktan sonra burada görünecek</div>
+      ) : goals.length === 0 ? (
+        <div className="tpl-empty-hint">Hedef bulunamadı</div>
+      ) : (
+        <div className="tpl-goals-list">
+          {goals.map((g, i) => (
+            <div key={i} className="tpl-goal-item">
+              <span className="tpl-goal-num">{i + 1}</span>
+              <span>{g}</span>
             </div>
-          </div>
-        ))}
-      </HTMLFlipBook>
+          ))}
+        </div>
+      )}
     </div>
   );
-};
+}
 
-// ─────────────────────────────────────────────
-// İstatistik
-// ─────────────────────────────────────────────
-const StatsPanel = ({ serialNo, theme }) => {
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    fetch(`${API}/stats?serial_no=${serialNo}`).then(r => r.json()).then(setStats).catch(() => {});
-  }, [serialNo]);
-
-  if (!stats) return <div className="stats-panel loading">Yükleniyor...</div>;
-
+function TemplateShopping({ data, empty }) {
+  const items = data?.items || [];
   return (
-    <div className="stats-panel">
-      <h3 className="stats-title"><BarChart2 size={16} /> İstatistikler</h3>
-      <div className="stats-bar-wrap">
-        <div className="stats-bar-track">
-          <div className="stats-bar-fill" style={{ width: `${stats.fill_rate}%`, background: theme?.accent }} />
-        </div>
-        <span className="stats-pct">{stats.fill_rate}%</span>
-      </div>
-      <div className="stats-grid">
-        <div className="stat-item">
-          <span className="stat-val" style={{ color: theme?.accent }}>{stats.filled_pages}</span>
-          <span className="stat-lbl">Dolu</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-val">{stats.empty_pages}</span>
-          <span className="stat-lbl">Boş</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-val">{stats.total_pages}</span>
-          <span className="stat-lbl">Toplam</span>
-        </div>
-      </div>
-      {stats.last_note_date && <p className="stats-last">Son not: {stats.last_note_date.slice(0, 10)}</p>}
-      {stats.recent_pages.length > 0 && <p className="stats-last">Son sayfalar: {stats.recent_pages.join(', ')}</p>}
+    <div className="template-shopping">
+      <div className="tpl-header">🛒 Alışveriş Listesi</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Alışveriş listeniz burada görünecek</div>
+      ) : items.length === 0 ? (
+        <div className="tpl-empty-hint">Liste boş</div>
+      ) : (
+        <ul className="tpl-todo-list">
+          {items.map((item, i) => (
+            <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
+              <span className="tpl-checkbox">{item.done ? "☑" : "☐"}</span>
+              <span>{item.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
-};
+}
 
-// ─────────────────────────────────────────────
-// Ana uygulama
-// ─────────────────────────────────────────────
+function TemplateHabit({ data, empty }) {
+  const habits = data?.habits || [];
+  return (
+    <div className="template-habit">
+      <div className="tpl-header">🔥 Alışkanlık Takibi</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Alışkanlıklarınız burada takip edilecek</div>
+      ) : habits.length === 0 ? (
+        <div className="tpl-empty-hint">Alışkanlık bulunamadı</div>
+      ) : (
+        <div className="tpl-habit-list">
+          {habits.map((h, i) => (
+            <div key={i} className="tpl-habit-item">
+              <span className={`tpl-habit-check ${h.completed ? "done" : ""}`}>{h.completed ? "✓" : "○"}</span>
+              <span>{h.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateGratitude({ data, empty }) {
+  const entries = data?.entries || [];
+  return (
+    <div className="template-gratitude">
+      <div className="tpl-header">🌸 Şükran Günlüğü</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Şükran notlarınız burada görünecek</div>
+      ) : entries.length === 0 ? (
+        <div className="tpl-empty-hint">Not bulunamadı</div>
+      ) : (
+        <div className="tpl-gratitude-list">
+          {entries.map((e, i) => (
+            <div key={i} className="tpl-gratitude-item">
+              <span className="tpl-heart">♥</span> {e}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateMood({ data, empty }) {
+  const moods = ["😢", "😕", "😐", "🙂", "😄"];
+  return (
+    <div className="template-mood">
+      <div className="tpl-header">😊 Ruh Hali</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Ruh haliniz kaydedilince burada görünecek</div>
+      ) : (
+        <>
+          <div className="tpl-mood-text">{data?.mood || ""}</div>
+          <div className="tpl-mood-icons">
+            {moods.map((m, i) => (
+              <span key={i} className="tpl-mood-icon">{m}</span>
+            ))}
+          </div>
+          {data?.notes && <div className="tpl-notes-text">{data.notes}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateWater({ data, empty }) {
+  const glasses = empty ? 0 : (data?.glasses || 0);
+  const target = empty ? 8 : (data?.target || 8);
+  return (
+    <div className="template-water">
+      <div className="tpl-header">💧 Su Takibi</div>
+      <div className="tpl-water-glasses">
+        {Array.from({ length: target }).map((_, i) => (
+          <span key={i} className={`tpl-glass ${i < glasses ? "filled" : ""}`}>💧</span>
+        ))}
+      </div>
+      <div className="tpl-water-count">{glasses} / {target} bardak</div>
+      {empty && <div className="tpl-empty-hint">Fotoğraflandıktan sonra güncellenir</div>}
+    </div>
+  );
+}
+
+function TemplateWeekly({ data, empty }) {
+  const days = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+  return (
+    <div className="template-weekly">
+      <div className="tpl-header">📅 Haftalık Plan</div>
+      {empty ? (
+        <div className="tpl-empty-hint">Haftalık planınız burada görünecek</div>
+      ) : (
+        <>
+          {data?.week && <div className="tpl-date">{data.week}</div>}
+          <div className="tpl-week-grid">
+            {days.map((d) => (
+              <div key={d} className="tpl-week-day">
+                <div className="tpl-week-day-name">{d}</div>
+              </div>
+            ))}
+          </div>
+          {data?.achievements?.length > 0 && (
+            <div className="tpl-section">
+              <div className="tpl-section-title">Başarılar</div>
+              {data.achievements.map((a, i) => <div key={i} className="tpl-item">✓ {a}</div>)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateNotes({ data, empty }) {
+  return (
+    <div className="template-notes">
+      <div className="tpl-header">📝 Notlar</div>
+      {empty ? (
+        <div className="tpl-lines">
+          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="tpl-line" />)}
+        </div>
+      ) : (
+        <div className="tpl-notes-text">{data?.content || ""}</div>
+      )}
+    </div>
+  );
+}
+
+function TemplateMonthly({ data, empty }) {
+  return (
+    <div className="template-monthly">
+      <div className="tpl-header">🗓 Aylık Takvim</div>
+      {data?.month && <div className="tpl-date">{data.month}</div>}
+      <div className="tpl-month-grid">
+        {["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(d => (
+          <div key={d} className="tpl-month-header">{d}</div>
+        ))}
+        {Array.from({ length: 35 }).map((_, i) => (
+          <div key={i} className="tpl-month-day">{i < 31 ? i + 1 : ""}</div>
+        ))}
+      </div>
+      {empty && <div className="tpl-empty-hint">Fotoğraflandıktan sonra dolacak</div>}
+    </div>
+  );
+}
+
+function TemplateCover({ data, empty, themeColor }) {
+  return (
+    <div className="template-cover" style={{ background: themeColor || "#2d4a3e" }}>
+      <div className="tpl-cover-title">{data?.title || "MANIFEST"}</div>
+      {data?.subtitle && <div className="tpl-cover-subtitle">{data.subtitle}</div>}
+      {data?.date_range && <div className="tpl-cover-date">{data.date_range}</div>}
+      {empty && <div className="tpl-cover-hint">Kapak sayfası</div>}
+    </div>
+  );
+}
+
+function PageTemplate({ type, data, empty, themeColor }) {
+  const props = { data, empty, themeColor };
+  switch (type) {
+    case "todo":      return <TemplateTodo {...props} />;
+    case "daily":     return <TemplateDaily {...props} />;
+    case "goals":     return <TemplateGoals {...props} />;
+    case "shopping":  return <TemplateShopping {...props} />;
+    case "habit":     return <TemplateHabit {...props} />;
+    case "gratitude": return <TemplateGratitude {...props} />;
+    case "mood":      return <TemplateMood {...props} />;
+    case "water":     return <TemplateWater {...props} />;
+    case "weekly":    return <TemplateWeekly {...props} />;
+    case "monthly":   return <TemplateMonthly {...props} />;
+    case "cover":     return <TemplateCover {...props} />;
+    default:          return <TemplateNotes {...props} />;
+  }
+}
+
+// ─── Ana uygulama ──────────────────────────────────────────────────────
+
 export default function App() {
-  const [step, setStep] = useState('home');
+  const [step, setStep] = useState("home");
   const [journals, setJournals] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('ajan_journals') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem("ajanda_journals") || "[]"); } catch { return []; }
   });
-  const [activeJournal, setActiveJournal] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [current, setCurrent] = useState(null);
+  const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const [targetPage, setTargetPage] = useState(0);
-  const [activateFile, setActivateFile] = useState(null);
-  const [activatePreview, setActivatePreview] = useState(null);
-  const [pinValue, setPinValue] = useState('');
-  const [pinError, setPinError] = useState(false);
-  const fileBuffer = useRef(null);
-  const coverInputRef = useRef(null);
-  const pageInputRef = useRef(null);
+  const [error, setError] = useState("");
+  const [pages, setPages] = useState([]);
+  const [stepOverlay, setStepOverlay] = useState(null);
+  const [activePage, setActivePage] = useState(null);
+  const isNative = !!window.Capacitor?.isNativePlatform?.();
 
-  useEffect(() => {
-    localStorage.setItem('ajan_journals', JSON.stringify(journals));
-  }, [journals]);
+  const saveJournals = (list) => {
+    setJournals(list);
+    localStorage.setItem("ajanda_journals", JSON.stringify(list));
+  };
 
-  useEffect(() => {
-    if (activeJournal?.theme) applyTheme(activeJournal.theme);
-  }, [activeJournal]);
+  // QR tara (native)
+  const scanQR = async () => {
+    if (!isNative) return null;
+    await BarcodeScanner.requestPermissions();
+    const result = await BarcodeScanner.scan();
+    return result?.barcodes?.[0]?.rawValue || null;
+  };
 
-  const loadData = async (sn) => {
+  // Fotoğraf çek
+  const takePhoto = async () => {
+    if (isNative) {
+      const photo = await Camera.getPhoto({
+        quality: 85,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        correctOrientation: true,
+      });
+      const res = await fetch(`data:image/jpeg;base64,${photo.base64String}`);
+      return await res.blob();
+    } else {
+      return new Promise((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = (e) => resolve(e.target.files[0]);
+        input.click();
+      });
+    }
+  };
+
+  // Aktivasyon
+  const handleActivate = async () => {
+    setError("");
+    if (!pin || pin.length < 4) { setError("PIN en az 4 karakter olmalı"); return; }
+    setLoading(true);
     try {
-      const res = await fetch(`${API}/history?serial_no=${sn}`);
-      setHistory(await res.json());
+      let res;
+      if (isNative) {
+        setStepOverlay({ icon: "📷", title: "Kapak QR'ını Tara", desc: "Ajandanın kapağındaki QR kodu lens ile okut" });
+        const qr = await scanQR();
+        setStepOverlay(null);
+        if (!qr) { setError("QR okunamadı"); setLoading(false); return; }
+        res = await fetch(`${API}/activate_qr?qr=${encodeURIComponent(qr)}&pin=${pin}`, { method: "POST" });
+      } else {
+        setStepOverlay({ icon: "📸", title: "Kapak Fotoğrafı", desc: "Ajandanın kapağını QR kodu görünecek şekilde fotoğraflayın" });
+        const blob = await takePhoto();
+        setStepOverlay(null);
+        if (!blob) { setLoading(false); return; }
+        const form = new FormData();
+        form.append("file", blob, "cover.jpg");
+        res = await fetch(`${API}/activate?pin=${pin}`, { method: "POST", body: form });
+      }
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
+
+      const journal = {
+        serial_no: data.serial_no,
+        theme_id: data.theme_id,
+        theme_name: data.theme_name,
+        theme_color: data.theme_color,
+        pin,
+        template: data.template,
+      };
+      const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
+      saveJournals(updated);
+      setCurrent(journal);
+      await loadPages(journal);
+      setStep("dashboard");
+    } catch (e) {
+      setError("Bağlantı hatası");
+    }
+    setLoading(false);
+  };
+
+  const handleLogin = async (journal) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/login?serial_no=${journal.serial_no}&pin=${journal.pin}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
+      const updated = { ...journal, template: data.template, theme_color: data.theme_color };
+      setCurrent(updated);
+      await loadPages(updated);
+      setStep("dashboard");
+    } catch { setError("Bağlantı hatası"); }
+    setLoading(false);
+  };
+
+  const loadPages = async (journal) => {
+    try {
+      const res = await fetch(`${API}/history?serial_no=${journal.serial_no}`);
+      const data = await res.json();
+      setPages(data.notes || []);
     } catch {}
   };
 
-  useEffect(() => {
-    if (step === 'dashboard' && activeJournal) loadData(activeJournal.serial_no);
-  }, [step, activeJournal]);
-
-  // ── Kapak QR — mobilde direkt lens, webde input
-  const handleCoverBtn = async () => {
-    if (isNative()) {
-      try {
-        const file = await takePhoto();
-        setActivateFile(file);
-        setActivatePreview(URL.createObjectURL(file));
-        setPinValue('');
-        setStep('activate');
-      } catch (e) {
-        coverInputRef.current?.click();
-      }
-    } else {
-      coverInputRef.current?.click();
-    }
-  };
-
-  const handleCoverFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setActivateFile(file);
-    setActivatePreview(URL.createObjectURL(file));
-    setPinValue('');
-    setStep('activate');
-  };
-
-  // ── Aktivasyon
-  const handleActivate = async () => {
-    if (!activateFile || pinValue.length !== 4) return;
-    setLoading(true);
-    const formData = new FormData();
-    formData.append('file', activateFile);
-    try {
-      const res = await fetch(`${API}/activate?pin=${pinValue}`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (res.status === 401) {
-        setPinError(true);
-        setTimeout(() => { setPinValue(''); setPinError(false); }, 800);
-        setLoading(false); return;
-      }
-      if (!res.ok) { alert(data.detail || 'Hata!'); setLoading(false); return; }
-      const journal = { serial_no: data.serial_no, theme_id: data.theme_id, theme: data.theme };
-      setActiveJournal(journal);
-      setJournals(prev => prev.find(j => j.serial_no === data.serial_no) ? prev : [...prev, journal]);
-      setPinValue(''); setActivateFile(null); setActivatePreview(null);
-      setStep('dashboard');
-    } catch { alert('Sunucuya bağlanılamadı.'); }
-    setLoading(false);
-  };
-
-  const handleSelectJournal = (j) => { setActiveJournal(j); setPinValue(''); setStep('pin_existing'); };
-
-  const handleExistingPin = async (pin) => {
+  const handleUploadPage = async () => {
+    if (!current) return;
+    setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${API}/login?serial_no=${activeJournal.serial_no}&pin=${pin}`, { method: 'POST' });
-      if (res.status === 401) {
-        setPinError(true);
-        setTimeout(() => { setPinValue(''); setPinError(false); }, 800);
-        setLoading(false); return;
-      }
-      const data = await res.json();
-      const updated = { ...activeJournal, theme: data.theme };
-      setActiveJournal(updated);
-      setJournals(prev => prev.map(j => j.serial_no === updated.serial_no ? updated : j));
-      setStep('dashboard');
-    } catch { alert('Sunucuya bağlanılamadı.'); }
-    setLoading(false);
-  };
+      let pageNo = null;
+      let blob = null;
 
-  // ── Sayfa yükle — mobilde direkt lens
-  const handleUploadBtn = async () => {
-    if (isNative()) {
-      try {
-        const file = await takePhoto();
-        fileBuffer.current = file;
-        await doUpload(file, false);
-      } catch (e) {
-        pageInputRef.current?.click();
-      }
-    } else {
-      pageInputRef.current?.click();
-    }
-  };
+      if (isNative) {
+        setStepOverlay({ icon: "📷", title: "Sayfa QR'ını Tara", desc: "Sayfanın köşesindeki QR kodu okut" });
+        const qr = await scanQR();
+        setStepOverlay(null);
+        if (!qr) { setError("QR okunamadı"); setLoading(false); return; }
 
-  const handlePageFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    fileBuffer.current = file;
-    await doUpload(file, false);
-  };
+        setStepOverlay({ icon: "📸", title: "Sayfayı Fotoğrafla", desc: "Sayfanın tamamını net şekilde fotoğraflayın" });
+        blob = await takePhoto();
+        setStepOverlay(null);
+        if (!blob) { setLoading(false); return; }
 
-  const doUpload = async (file, force) => {
-    if (!file) return;
-    setLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await fetch(`${API}/upload?serial_no=${activeJournal.serial_no}&force=${force}`,
-        { method: 'POST', body: formData });
-      if (res.status === 422) {
-        alert('SAYFADA QR BULUNAMADI!\n\nLütfen sayfa QR kodu görünecek şekilde fotoğraf çekin.');
-        setLoading(false); return;
-      }
-      if (res.status === 409) {
+        const form = new FormData();
+        form.append("file", blob, "page.jpg");
+        const res = await fetch(`${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}`, {
+          method: "POST", body: form
+        });
         const data = await res.json();
-        setLoading(false);
-        if (window.confirm(`Sayfa ${data.page} dolu! Eski not silinsin mi?\n\nMevcut: "${data.existing_text}"`)) {
-          await doUpload(fileBuffer.current, true);
+        if (!res.ok) {
+          if (res.status === 409) {
+            if (!confirm(`Sayfa ${data.detail?.match(/\d+/)?.[0]} zaten kayıtlı. Üzerine yazmak ister misin?`)) {
+              setLoading(false); return;
+            }
+            const res2 = await fetch(`${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}&force=true`, {
+              method: "POST", body: form
+            });
+            const data2 = await res2.json();
+            if (!res2.ok) { setError(data2.detail || "Hata"); setLoading(false); return; }
+          } else {
+            setError(data.detail || "Hata"); setLoading(false); return;
+          }
         }
-        return;
+      } else {
+        setStepOverlay({ icon: "📸", title: "Sayfa Fotoğrafı", desc: "QR kodu görünecek şekilde sayfayı seçin" });
+        blob = await takePhoto();
+        setStepOverlay(null);
+        if (!blob) { setLoading(false); return; }
+        const form = new FormData();
+        form.append("file", blob, "page.jpg");
+        const res = await fetch(`${API}/upload?serial_no=${current.serial_no}`, {
+          method: "POST", body: form
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
       }
-      if (!res.ok) throw new Error('Yükleme başarısız!');
-      await loadData(activeJournal.serial_no);
-      const result = await res.json();
-      setTargetPage(parseInt(result.page));
-    } catch (err) { alert(err.message); }
+
+      await loadPages(current);
+    } catch (e) {
+      setError("Yükleme hatası");
+    }
     setLoading(false);
   };
 
-  const filteredHistory = history.filter(item =>
-    item.text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.page?.toString().includes(searchTerm)
-  );
-
-  const theme = activeJournal?.theme;
-
-  // ── PIN klavyesi
-  const PinPad = ({ onComplete }) => (
-    <div className="pin-wrap" style={{ background: theme?.bg || '#f4f1ea' }}>
-      <div className="pin-card" style={{ background: theme?.card || '#fff' }}>
-        <Lock className="pin-icon" size={44} style={{ color: pinError ? '#ef4444' : theme?.accent }} />
-        <h2 className="pin-title" style={{ color: pinError ? '#ef4444' : undefined }}>
-          {pinError ? 'HATALI ŞİFRE!' : 'Giriş Şifresi'}
-        </h2>
-        <div className="pin-dots">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className={`pin-dot ${pinValue.length > i ? 'filled' : ''} ${pinError ? 'error' : ''}`}
-              style={pinValue.length > i && !pinError ? { background: theme?.accent, borderColor: theme?.accent } : {}} />
-          ))}
+  // Şablon sayfası göster — boş veya dolu
+  const renderPageCard = (pageData) => {
+    const tplType = pageData.template_type || pageData.template?.type || "notes";
+    const tplData = pageData.template_data;
+    const isEmpty = pageData.is_empty || !tplData;
+    return (
+      <div
+        key={pageData.page_no}
+        className={`page-card ${isEmpty ? "empty" : "filled"}`}
+        onClick={() => setActivePage(pageData)}
+      >
+        <div className="page-card-header">
+          <span className="page-card-num">Sayfa {pageData.page_no}</span>
+          <span className="page-card-title">{pageData.template?.title || tplType}</span>
+          {!isEmpty && <span className="page-card-badge">✓</span>}
         </div>
-        <div className="pin-grid">
-          {[1,2,3,4,5,6,7,8,9,'C',0,'←'].map(btn => (
-            <button key={btn} className={`pin-key ${pinError ? 'error' : ''}`}
-              onClick={() => {
-                setPinError(false);
-                if (btn === 'C') { setPinValue(''); return; }
-                if (btn === '←') { setPinValue(p => p.slice(0, -1)); return; }
-                const np = pinValue + btn;
-                if (np.length <= 4) { setPinValue(np); if (np.length === 4) onComplete(np); }
-              }}>{btn}</button>
-          ))}
+        <div className="page-card-preview">
+          <PageTemplate
+            type={tplType}
+            data={tplData}
+            empty={isEmpty}
+            themeColor={current?.theme_color}
+          />
         </div>
-        <button className="pin-back" onClick={() => { setStep('home'); setPinValue(''); }}>← Geri</button>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // ── EKRANLAR
+  // Tüm şablon sayfalarını oluştur (dolu + boş)
+  const renderAllPages = () => {
+    const template = current?.template || {};
+    const filledMap = {};
+    pages.forEach(p => { filledMap[p.page_no] = p; });
 
-  if (step === 'home') return (
-    <div className="home-screen">
-      <div className="home-card">
-        <h1 className="home-logo">AJAN-DA</h1>
-        <p className="home-sub">Fiziksel ajandanı dijitalleştir</p>
-        <button className="home-btn primary" onClick={handleCoverBtn}>
-          <Plus size={18} /> Kapak QR ile Aç
-        </button>
-        {/* Web fallback input */}
-        <input ref={coverInputRef} type="file" accept="image/*" capture="environment"
-          className="hidden" onChange={handleCoverFile} />
-        {journals.length > 0 && (
-          <div className="journal-list">
-            <p className="journal-list-title">Kayıtlı Ajandalar</p>
-            {journals.map(j => (
-              <button key={j.serial_no} className="journal-item" onClick={() => handleSelectJournal(j)}>
-                <BookOpen size={16} style={{ color: j.theme?.accent }} />
-                <span className="journal-item-name">{j.theme?.name || j.theme_id}</span>
-                <span className="journal-item-sn">SN{j.serial_no}</span>
-                <ChevronRight size={14} className="ml-auto opacity-40" />
-              </button>
-            ))}
+    const allPages = Object.entries(template).map(([pageNo, tpl]) => {
+      const no = parseInt(pageNo);
+      const filled = filledMap[no];
+      if (filled) return { ...filled, template: tpl };
+      return { page_no: no, template: tpl, template_type: tpl.type, template_data: null, is_empty: true, image_url: null };
+    });
+
+    allPages.sort((a, b) => a.page_no - b.page_no);
+    return allPages.map(renderPageCard);
+  };
+
+  // ─── UI ───
+
+  if (stepOverlay) {
+    return (
+      <div className="overlay-screen">
+        <div className="overlay-icon">{stepOverlay.icon}</div>
+        <div className="overlay-title">{stepOverlay.title}</div>
+        <div className="overlay-desc">{stepOverlay.desc}</div>
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  if (activePage) {
+    const tplType = activePage.template_type || activePage.template?.type || "notes";
+    return (
+      <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
+        <div className="detail-header">
+          <button className="back-btn" onClick={() => setActivePage(null)}>← Geri</button>
+          <span className="detail-title">{activePage.template?.title || `Sayfa ${activePage.page_no}`}</span>
+          <span className="detail-page-no">#{activePage.page_no}</span>
+        </div>
+        {activePage.image_url && (
+          <div className="detail-image-wrap">
+            <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
-      </div>
-    </div>
-  );
-
-  if (step === 'activate') return (
-    <div className="home-screen">
-      <div className="home-card activate-card">
-        <h2 className="activate-title">Ajanda Aktivasyonu</h2>
-        {activatePreview && <img src={activatePreview} alt="kapak" className="activate-preview" />}
-        <p className="activate-hint">4 haneli PIN belirleyin / girin</p>
-        <div className="pin-dots inline-dots">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className={`pin-dot ${pinValue.length > i ? 'filled' : ''} ${pinError ? 'error' : ''}`} />
-          ))}
+        <div className="detail-template">
+          <PageTemplate
+            type={tplType}
+            data={activePage.template_data}
+            empty={activePage.is_empty}
+            themeColor={current?.theme_color}
+          />
         </div>
-        <div className="pin-grid compact">
-          {[1,2,3,4,5,6,7,8,9,'C',0,'←'].map(btn => (
-            <button key={btn} className={`pin-key ${pinError ? 'error' : ''}`}
-              onClick={() => {
-                setPinError(false);
-                if (btn === 'C') { setPinValue(''); return; }
-                if (btn === '←') { setPinValue(p => p.slice(0, -1)); return; }
-                const np = pinValue + btn;
-                if (np.length <= 4) setPinValue(np);
-              }}>{btn}</button>
-          ))}
-        </div>
-        {pinValue.length === 4 && (
-          <button className="home-btn primary mt-4" onClick={handleActivate}>Devam Et →</button>
+        {activePage.is_empty && (
+          <button
+            className="btn-primary"
+            onClick={() => { setActivePage(null); handleUploadPage(); }}
+          >
+            📸 Bu Sayfayı Fotoğrafla
+          </button>
         )}
-        <button className="pin-back" onClick={() => setStep('home')}>← Geri</button>
-        {pinError && <p className="text-red-500 text-sm mt-2">Hatalı şifre!</p>}
       </div>
-      {loading && <div className="loading-overlay">QR OKUNUYOR...</div>}
-    </div>
-  );
+    );
+  }
 
-  if (step === 'pin_existing') return <PinPad onComplete={handleExistingPin} />;
+  if (step === "dashboard" && current) {
+    return (
+      <div className="screen dashboard-screen" style={{ "--theme": current.theme_color || "#2d4a3e" }}>
+        <div className="dash-header">
+          <div className="dash-theme-badge" style={{ background: current.theme_color }}>
+            {current.theme_name}
+          </div>
+          <div className="dash-serial">#{current.serial_no}</div>
+          <button className="dash-logout" onClick={() => { setCurrent(null); setStep("home"); }}>↩</button>
+        </div>
+
+        <div className="dash-stats">
+          <div className="stat-item">
+            <span className="stat-num">{pages.length}</span>
+            <span className="stat-label">Fotoğraflanan</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-num">{Object.keys(current.template || {}).length}</span>
+            <span className="stat-label">Toplam Sayfa</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-num">
+              {Object.keys(current.template || {}).length > 0
+                ? Math.round(pages.length / Object.keys(current.template).length * 100)
+                : 0}%
+            </span>
+            <span className="stat-label">Doluluk</span>
+          </div>
+        </div>
+
+        <button className="btn-upload" onClick={handleUploadPage} disabled={loading}>
+          {loading ? "⏳ Yükleniyor..." : "📸 Sayfa Fotoğrafla"}
+        </button>
+
+        {error && <div className="error-msg">{error}</div>}
+
+        <div className="pages-grid">
+          {renderAllPages()}
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "activate") {
+    return (
+      <div className="screen activate-screen">
+        <button className="back-btn" onClick={() => setStep("home")}>← Geri</button>
+        <div className="activate-icon">📒</div>
+        <h2>Ajanda Aktive Et</h2>
+        <p>Kapak QR'ını okutarak ajandanı sisteme ekle</p>
+        <input
+          className="pin-input"
+          type="password"
+          inputMode="numeric"
+          placeholder="PIN oluştur (min 4 karakter)"
+          value={pin}
+          onChange={e => setPin(e.target.value)}
+          maxLength={8}
+        />
+        {error && <div className="error-msg">{error}</div>}
+        <button className="btn-primary" onClick={handleActivate} disabled={loading}>
+          {loading ? "⏳..." : isNative ? "📷 QR Tara & Aktive Et" : "📸 Kapak Fotoğrafı Yükle"}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard" style={{ background: theme?.bg, color: theme?.text }}>
-      <nav className="dash-nav" style={{ borderColor: theme?.page_line_color }}>
-        <div className="dash-nav-left">
-          <span className="dash-logo">AJAN-DA</span>
-          <span className="dash-theme-name" style={{ color: theme?.accent }}>{theme?.name}</span>
-          <span className="dash-sn">SN{activeJournal?.serial_no}</span>
-        </div>
-        <button className="dash-logout" onClick={() => { setStep('home'); setActiveJournal(null); setHistory([]); }}>
-          <LogOut size={15} /> Çıkış
-        </button>
-      </nav>
-      <main className="dash-main">
-        <DijitalAjanda theme={theme} history={searchTerm ? filteredHistory : history}
-          targetPage={targetPage} isSearching={searchTerm.length > 0} />
-        <div className="dash-panel">
-          <div className="dash-card" style={{ background: theme?.card }}>
-            <button className="upload-zone" onClick={handleUploadBtn}>
-              <Camera size={36} style={{ opacity: 0.4 }} />
-              <span className="upload-label">Sayfa Yükle</span>
+    <div className="screen home-screen">
+      <div className="home-logo">
+        <span className="logo-ajan">AJAN</span><span className="logo-da">-DA</span>
+      </div>
+      <div className="home-tagline">Ajandanı dijitalleştir</div>
+
+      {journals.length > 0 && (
+        <div className="journals-list">
+          <div className="journals-title">Ajandalarım</div>
+          {journals.map(j => (
+            <button key={j.serial_no} className="journal-item" onClick={() => handleLogin(j)}>
+              <span className="journal-dot" style={{ background: j.theme_color }} />
+              <span className="journal-name">{j.theme_name}</span>
+              <span className="journal-serial">#{j.serial_no}</span>
+              <span className="journal-arrow">→</span>
             </button>
-            {/* Web fallback input */}
-            <input ref={pageInputRef} type="file" accept="image/*" capture="environment"
-              className="hidden" onChange={handlePageFile} />
-            <button className="pdf-btn" style={{ background: theme?.accent }}
-              onClick={() => window.open(`${API}/export-pdf?serial_no=${activeJournal.serial_no}`)}>
-              PDF
-            </button>
-          </div>
-          <div className="dash-card" style={{ background: theme?.card }}>
-            <div className="search-wrap">
-              <Search size={16} className="search-icon" />
-              <input type="text" placeholder="Sayfalarda ara..." value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)} className="search-input" />
-            </div>
-            {searchTerm && (
-              <div className="search-results">
-                {filteredHistory.map((item, i) => (
-                  <button key={i} className="search-chip"
-                    style={{ background: theme?.accent + '22', color: theme?.accent }}
-                    onClick={() => { setSearchTerm(''); setTargetPage(parseInt(item.page)); }}>
-                    SF {item.page}
-                  </button>
-                ))}
-                {filteredHistory.length === 0 && <span className="no-result">Sonuç bulunamadı</span>}
-              </div>
-            )}
-            <StatsPanel serialNo={activeJournal.serial_no} theme={theme} />
-          </div>
+          ))}
         </div>
-      </main>
-      {loading && <div className="loading-overlay">ANALİZ EDİLİYOR...</div>}
+      )}
+
+      {error && <div className="error-msg">{error}</div>}
+
+      <button className="btn-primary" onClick={() => setStep("activate")}>
+        + Yeni Ajanda Ekle
+      </button>
     </div>
   );
 }
+
+// ─── Stiller ──────────────────────────────────────────────────────────
+
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --theme: #2d4a3e;
+    --cream: #faf8f5;
+    --ink: #1a1512;
+    --warm: #8b6f5c;
+    --accent: #c4956a;
+    --border: #e2d9ce;
+    --soft: #f0ebe3;
+    --red: #e05c4b;
+    --green: #4caf50;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  .screen {
+    min-height: 100vh;
+    padding: 24px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* ─── Home ─── */
+  .home-screen { display: flex; flex-direction: column; align-items: center; padding-top: 80px; gap: 20px; }
+  .home-logo { font-family: 'Playfair Display', serif; font-size: 48px; font-weight: 700; }
+  .logo-ajan { color: var(--ink); }
+  .logo-da { color: var(--accent); }
+  .home-tagline { color: var(--warm); font-size: 16px; margin-top: -12px; }
+
+  .journals-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+  .journals-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
+  .journal-item {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 14px 16px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    background: white; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    transition: all 0.2s; text-align: left;
+  }
+  .journal-item:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(139,111,92,0.1); }
+  .journal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .journal-name { flex: 1; font-weight: 600; }
+  .journal-serial { color: var(--warm); font-size: 12px; }
+  .journal-arrow { color: var(--warm); }
+
+  /* ─── Activate ─── */
+  .activate-screen { display: flex; flex-direction: column; align-items: center; padding-top: 40px; gap: 16px; }
+  .activate-icon { font-size: 60px; margin: 16px 0; }
+  .activate-screen h2 { font-family: 'Playfair Display', serif; font-size: 28px; }
+  .activate-screen p { color: var(--warm); text-align: center; font-size: 14px; }
+  .pin-input {
+    width: 100%; padding: 14px 16px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: 18px; font-family: 'DM Sans', sans-serif;
+    text-align: center; letter-spacing: 4px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .pin-input:focus { border-color: var(--accent); }
+
+  /* ─── Buttons ─── */
+  .btn-primary {
+    width: 100%; padding: 16px;
+    background: var(--ink); color: white;
+    border: none; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .back-btn {
+    background: none; border: none; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; color: var(--warm); cursor: pointer; padding: 0; margin-bottom: 16px;
+    display: block;
+  }
+
+  .error-msg {
+    width: 100%; padding: 12px 16px;
+    background: #ffeaea; border: 1px solid #ffcdd2;
+    border-radius: 10px; color: var(--red); font-size: 13px; text-align: center;
+  }
+
+  /* ─── Dashboard ─── */
+  .dashboard-screen { padding-top: 0; }
+  .dash-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .dash-theme-badge {
+    padding: 4px 12px; border-radius: 20px;
+    color: white; font-size: 13px; font-weight: 600;
+  }
+  .dash-serial { flex: 1; color: var(--warm); font-size: 13px; }
+  .dash-logout { background: none; border: none; font-size: 20px; cursor: pointer; }
+
+  .dash-stats {
+    display: flex; gap: 12px; margin-bottom: 16px;
+  }
+  .stat-item {
+    flex: 1; text-align: center; padding: 12px;
+    background: white; border-radius: 12px; border: 1px solid var(--border);
+  }
+  .stat-num { display: block; font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--warm); }
+
+  .btn-upload {
+    width: 100%; padding: 14px;
+    background: var(--theme); color: white;
+    border: none; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-bottom: 16px; transition: all 0.2s;
+  }
+  .btn-upload:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  .btn-upload:disabled { opacity: 0.6; }
+
+  /* ─── Sayfa kartları ─── */
+  .pages-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; padding-bottom: 24px;
+  }
+
+  .page-card {
+    border-radius: 12px; border: 1.5px solid var(--border);
+    background: white; overflow: hidden;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .page-card:hover { border-color: var(--theme); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .page-card.empty { opacity: 0.7; }
+  .page-card.filled { border-color: var(--border); }
+
+  .page-card-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px; background: var(--soft);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-card-num { font-size: 10px; font-weight: 700; color: var(--warm); }
+  .page-card-title { flex: 1; font-size: 11px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .page-card-badge { font-size: 10px; color: var(--green); }
+
+  .page-card-preview {
+    padding: 8px; min-height: 80px; max-height: 140px;
+    overflow: hidden; font-size: 0.75em;
+  }
+
+  /* ─── Detail ─── */
+  .detail-screen { display: flex; flex-direction: column; gap: 16px; }
+  .detail-header {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .detail-header .back-btn { margin-bottom: 0; }
+  .detail-title { flex: 1; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; }
+  .detail-page-no { color: var(--warm); font-size: 13px; }
+
+  .detail-image-wrap { border-radius: 12px; overflow: hidden; }
+  .detail-image { width: 100%; display: block; }
+
+  .detail-template {
+    background: white; border-radius: 12px;
+    border: 1px solid var(--border); padding: 16px;
+  }
+
+  /* ─── Template bileşenleri ─── */
+  .tpl-header {
+    font-weight: 700; font-size: 13px;
+    margin-bottom: 8px; color: var(--ink);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 4px;
+  }
+  .tpl-empty-hint { font-size: 11px; color: var(--warm); font-style: italic; }
+  .tpl-section { margin-top: 8px; }
+  .tpl-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
+  .tpl-date { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .tpl-notes-text { font-size: 12px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+
+  .tpl-todo-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .tpl-todo-item { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; }
+  .tpl-todo-item.done { opacity: 0.5; text-decoration: line-through; }
+  .tpl-checkbox { flex-shrink: 0; }
+
+  .tpl-priority-item { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
+  .tpl-num { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .tpl-schedule-item { font-size: 11px; color: var(--warm); border-left: 2px solid var(--border); padding-left: 6px; margin-bottom: 2px; }
+
+  .tpl-goals-list { display: flex; flex-direction: column; gap: 6px; }
+  .tpl-goal-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .tpl-goal-num { width: 20px; height: 20px; border-radius: 4px; background: var(--ink); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+
+  .tpl-habit-list { display: flex; flex-direction: column; gap: 4px; }
+  .tpl-habit-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .tpl-habit-check { font-size: 14px; }
+  .tpl-habit-check.done { color: var(--green); }
+
+  .tpl-gratitude-list { display: flex; flex-direction: column; gap: 6px; }
+  .tpl-gratitude-item { font-size: 12px; display: flex; align-items: flex-start; gap: 6px; }
+  .tpl-heart { color: #e91e63; }
+
+  .tpl-mood-text { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .tpl-mood-icons { display: flex; gap: 8px; font-size: 20px; }
+
+  .tpl-water-glasses { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+  .tpl-glass { font-size: 16px; opacity: 0.3; }
+  .tpl-glass.filled { opacity: 1; }
+  .tpl-water-count { font-size: 12px; color: var(--warm); }
+
+  .tpl-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 8px 0; }
+  .tpl-week-day { text-align: center; }
+  .tpl-week-day-name { font-size: 9px; color: var(--warm); font-weight: 600; }
+
+  .tpl-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 8px 0; }
+  .tpl-month-header { font-size: 8px; color: var(--warm); font-weight: 600; text-align: center; padding: 2px; }
+  .tpl-month-day { font-size: 9px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 16px; border-radius: 2px; }
+
+  .tpl-lines { display: flex; flex-direction: column; gap: 8px; }
+  .tpl-line { height: 1px; background: var(--border); }
+
+  .tpl-cover { border-radius: 8px; padding: 20px; color: white; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .tpl-cover-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; text-align: center; }
+  .tpl-cover-subtitle { font-size: 11px; opacity: 0.8; margin-top: 4px; }
+  .tpl-cover-date { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+  .tpl-cover-hint { font-size: 11px; opacity: 0.7; margin-top: 8px; }
+
+  .tpl-item { font-size: 12px; margin-bottom: 3px; }
+
+  /* ─── Overlay ─── */
+  .overlay-screen {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: rgba(26,21,18,0.95); color: white; padding: 40px;
+  }
+  .overlay-icon { font-size: 64px; }
+  .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
+  .overlay-desc { font-size: 14px; opacity: 0.7; text-align: center; line-height: 1.6; }
+
+  .spinner {
+    width: 40px; height: 40px; margin-top: 16px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+`;
+
+const styleEl = document.createElement("style");
+styleEl.textContent = styles;
+document.head.appendChild(styleEl);
