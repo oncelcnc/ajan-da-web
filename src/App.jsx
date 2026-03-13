@@ -331,6 +331,73 @@ function PageTemplate({ type, data, empty, themeColor }) {
   return <RegionComponent type={type} {...props} />;
 }
 
+// ─── Inline Edit ─────────────────────────────────────────────────────
+
+function EditableText({ value, onSave, multiline = false }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value || "");
+  if (!editing) return (
+    <span className="editable-text" onClick={() => setEditing(true)}>
+      {val || <span className="editable-placeholder">Düzenlemek için tıkla</span>}
+      <span className="edit-pencil">✏️</span>
+    </span>
+  );
+  return (
+    <span className="editable-active">
+      {multiline
+        ? <textarea className="edit-textarea" value={val} onChange={e => setVal(e.target.value)} autoFocus rows={3} />
+        : <input className="edit-input" value={val} onChange={e => setVal(e.target.value)} autoFocus />
+      }
+      <button className="edit-save-btn" onClick={() => { onSave(val); setEditing(false); }}>✓</button>
+      <button className="edit-cancel-btn" onClick={() => { setVal(value || ""); setEditing(false); }}>✗</button>
+    </span>
+  );
+}
+
+function EditableTodoList({ items, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [list, setList] = useState(items || []);
+  if (!editing) return (
+    <div>
+      <ul className="tpl-todo-list">
+        {list.map((item, i) => (
+          <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
+            <span className="tpl-checkbox" onClick={() => {
+              const updated = list.map((it, idx) => idx === i ? {...it, done: !it.done} : it);
+              setList(updated);
+              onSave(updated);
+            }}>{item.done ? "☑" : "☐"}</span>
+            <span>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+      <button className="edit-region-btn" onClick={() => setEditing(true)}>✏️ Düzenle</button>
+    </div>
+  );
+  return (
+    <div className="edit-todo-editor">
+      {list.map((item, i) => (
+        <div key={i} className="edit-todo-row">
+          <span className="tpl-checkbox" onClick={() => setList(list.map((it, idx) => idx === i ? {...it, done: !it.done} : it))}>
+            {item.done ? "☑" : "☐"}
+          </span>
+          <input
+            className="edit-input"
+            value={item.text}
+            onChange={e => setList(list.map((it, idx) => idx === i ? {...it, text: e.target.value} : it))}
+          />
+          <button className="edit-delete-btn" onClick={() => setList(list.filter((_, idx) => idx !== i))}>✗</button>
+        </div>
+      ))}
+      <button className="edit-add-btn" onClick={() => setList([...list, {text: "", done: false}])}>+ Ekle</button>
+      <div className="edit-actions">
+        <button className="edit-save-btn" onClick={() => { onSave(list); setEditing(false); }}>✓ Kaydet</button>
+        <button className="edit-cancel-btn" onClick={() => { setList(items || []); setEditing(false); }}>İptal</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Confirm Modal ────────────────────────────────────────────────────
 
 function ConfirmModal({ onConfirm, onCancel }) {
@@ -343,6 +410,172 @@ function ConfirmModal({ onConfirm, onCancel }) {
       <button className="btn-overlay-cancel" onClick={onCancel}>İptal</button>
     </div>
   );
+}
+
+// ─── Düzenlenebilir sayfa görünümü ────────────────────────────────────
+
+function EditableRegion({ regionId, region, onSave }) {
+  const type = region.type;
+  const data = region.data || {};
+
+  if (type === "todo" || type === "todos" || type === "shopping") {
+    return (
+      <div>
+        <div className="tpl-header">{type === "shopping" ? "🛒 Alışveriş" : "✅ Yapılacaklar"}</div>
+        <EditableTodoList
+          items={data.items || []}
+          onSave={(items) => onSave(regionId, "items", items)}
+        />
+      </div>
+    );
+  }
+
+  if (type === "notes" || type === "reflection" || type === "wins" || type === "next_goals") {
+    return (
+      <div>
+        <div className="tpl-header">📝 {region.label}</div>
+        <EditableText
+          value={data.content || data.items?.join("\n") || ""}
+          multiline={true}
+          onSave={(val) => onSave(regionId, "content", val)}
+        />
+      </div>
+    );
+  }
+
+  if (type === "monthly") {
+    return <TemplateMonthly data={data} empty={false} />;
+  }
+
+  if (type === "gratitude") {
+    return (
+      <div>
+        <div className="tpl-header">🌸 Şükran</div>
+        {(data.entries || []).map((e, i) => (
+          <div key={i} className="tpl-gratitude-item">
+            <span className="tpl-heart">♥</span>
+            <EditableText value={e} onSave={(val) => {
+              const entries = [...(data.entries || [])];
+              entries[i] = val;
+              onSave(regionId, "entries", entries);
+            }} />
+          </div>
+        ))}
+        <button className="edit-add-btn" onClick={() => {
+          const entries = [...(data.entries || []), ""];
+          onSave(regionId, "entries", entries);
+        }}>+ Ekle</button>
+      </div>
+    );
+  }
+
+  if (type === "mood") {
+    return (
+      <div>
+        <div className="tpl-header">😊 Ruh Hali</div>
+        <EditableText value={data.mood || ""} onSave={(val) => onSave(regionId, "mood", val)} />
+        <div style={{marginTop: 8}}>
+          <EditableText value={data.notes || ""} multiline onSave={(val) => onSave(regionId, "notes", val)} />
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "goals") {
+    const goals = Object.entries(data).filter(([k]) => k.startsWith("goal_"));
+    return (
+      <div>
+        <div className="tpl-header">🎯 Hedefler</div>
+        {goals.map(([k, v], i) => (
+          <div key={k} className="tpl-goal-item" style={{marginBottom: 6}}>
+            <span className="tpl-goal-num">{i+1}</span>
+            <EditableText value={v} onSave={(val) => onSave(regionId, k, val)} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "habit") {
+    return (
+      <div>
+        <div className="tpl-header">🔥 Alışkanlıklar</div>
+        <EditableTodoList
+          items={(data.habits || []).map(h => ({text: h.name, done: h.completed}))}
+          onSave={(items) => onSave(regionId, "habits", items.map(it => ({name: it.text, completed: it.done})))}
+        />
+      </div>
+    );
+  }
+
+  if (type === "cover" || type === "header") {
+    return (
+      <div>
+        <div className="tpl-header">📖 {region.label}</div>
+        <EditableText value={data.title || ""} onSave={(val) => onSave(regionId, "title", val)} />
+      </div>
+    );
+  }
+
+  // Fallback
+  return (
+    <div>
+      <div className="tpl-header">{region.label}</div>
+      <EditableText
+        value={data.content || ""}
+        multiline
+        onSave={(val) => onSave(regionId, "content", val)}
+      />
+    </div>
+  );
+}
+
+function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave }) {
+  if (!data) return <PageTemplate type={tplType} data={data} empty={true} themeColor={themeColor} />;
+
+  // Çok bölgeli sayfa
+  if (data.regions && Object.keys(data.regions).length > 1) {
+    return (
+      <div className="multi-region">
+        {Object.entries(data.regions).map(([rid, region]) => (
+          <div key={rid} className="region-block">
+            <div className="region-label">{region.label}</div>
+            <EditableRegion
+              regionId={rid}
+              region={region}
+              onSave={onSave}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Tek bölge — regions varsa ilk bölgeyi al, yoksa düz data
+  if (data.regions) {
+    const [rid, region] = Object.entries(data.regions)[0];
+    return <EditableRegion regionId={rid} region={region} onSave={onSave} />;
+  }
+
+  // Eski format — düz data
+  if (tplType === "todo" || tplType === "shopping") {
+    return (
+      <div>
+        <div className="tpl-header">{tplType === "shopping" ? "🛒 Alışveriş" : "✅ Yapılacaklar"}</div>
+        <EditableTodoList items={data.items || []} onSave={(items) => onSave(null, "items", items)} />
+      </div>
+    );
+  }
+  if (tplType === "notes") {
+    return (
+      <div>
+        <div className="tpl-header">📝 Notlar</div>
+        <EditableText value={data.content || ""} multiline onSave={(val) => onSave(null, "content", val)} />
+      </div>
+    );
+  }
+  // Diğerleri read-only göster
+  return <PageTemplate type={tplType} data={data} empty={empty} themeColor={themeColor} />;
 }
 
 // ─── Ana uygulama ──────────────────────────────────────────────────────
@@ -597,6 +830,34 @@ export default function App() {
     );
   }
 
+  const [editData, setEditData] = useState(null);
+
+  useEffect(() => {
+    setEditData(null);
+  }, [activePage?.page_no]);
+
+  const handleSaveEdit = async (regionId, field, value) => {
+    if (!activePage || !current) return;
+    const updated = JSON.parse(JSON.stringify(editData || activePage.template_data || {}));
+    if (regionId && updated.regions?.[regionId]) {
+      updated.regions[regionId].data[field] = value;
+    } else {
+      updated[field] = value;
+    }
+    setEditData(updated);
+    try {
+      await fetch(`${API}/page/${current.serial_no}/${activePage.page_no}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({template_data: updated})
+      });
+      // pages listesini güncelle
+      setPages(prev => prev.map(p =>
+        p.page_no === activePage.page_no ? {...p, template_data: updated} : p
+      ));
+    } catch(e) { console.error("Save error", e); }
+  };
+
   if (activePage) {
     const activeRegions = activePage.template?.regions;
     const firstActiveRegion = activeRegions?.[0];
@@ -615,11 +876,13 @@ export default function App() {
           </div>
         )}
         <div className="detail-template">
-          <PageTemplate
-            type={tplType}
-            data={activePage.template_data}
+          <EditablePageView
+            activePage={activePage}
+            tplType={tplType}
+            data={editData || activePage.template_data}
             empty={activePage.is_empty}
             themeColor={current?.theme_color}
+            onSave={handleSaveEdit}
           />
         </div>
         {activePage.is_empty && (
@@ -838,6 +1101,23 @@ const styles = `
   .overlay-icon { font-size: 64px; }
   .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
   .overlay-desc { font-size: 14px; opacity: 0.7; text-align: center; line-height: 1.6; }
+  /* ─── Edit stilleri ─── */
+  .editable-text { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; min-width: 60px; }
+  .editable-text:hover .edit-pencil { opacity: 1; }
+  .edit-pencil { font-size: 10px; opacity: 0; transition: opacity 0.2s; }
+  .editable-placeholder { color: var(--warm); font-style: italic; font-size: 11px; }
+  .editable-active { display: flex; align-items: center; gap: 4px; width: 100%; }
+  .edit-input { flex: 1; padding: 4px 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-family: "DM Sans", sans-serif; font-size: 13px; outline: none; }
+  .edit-textarea { flex: 1; width: 100%; padding: 6px 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-family: "DM Sans", sans-serif; font-size: 12px; outline: none; resize: vertical; }
+  .edit-save-btn { padding: 4px 8px; background: var(--green); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+  .edit-cancel-btn { padding: 4px 8px; background: #ccc; color: var(--ink); border: none; border-radius: 6px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+  .edit-region-btn { margin-top: 8px; padding: 4px 10px; background: var(--soft); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; color: var(--warm); cursor: pointer; }
+  .edit-todo-editor { display: flex; flex-direction: column; gap: 6px; }
+  .edit-todo-row { display: flex; align-items: center; gap: 6px; }
+  .edit-delete-btn { padding: 2px 6px; background: #ffebee; border: 1px solid #ffcdd2; border-radius: 4px; color: var(--red); cursor: pointer; font-size: 11px; }
+  .edit-add-btn { padding: 6px 12px; background: var(--soft); border: 1px dashed var(--border); border-radius: 6px; font-size: 12px; color: var(--warm); cursor: pointer; margin-top: 4px; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+
   .btn-overlay-confirm { width: 100%; max-width: 280px; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
   .btn-overlay-cancel { width: 100%; max-width: 280px; padding: 14px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; cursor: pointer; }
   .spinner { width: 40px; height: 40px; margin-top: 16px; border: 3px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
