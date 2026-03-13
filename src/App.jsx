@@ -289,6 +289,20 @@ function PageTemplate({ type, data, empty, themeColor }) {
   }
 }
 
+// ─── Confirm Modal ────────────────────────────────────────────────────
+
+function ConfirmModal({ onConfirm, onCancel }) {
+  return (
+    <div className="overlay-screen">
+      <div className="overlay-icon">⚠️</div>
+      <div className="overlay-title">Sayfa Zaten Kayıtlı</div>
+      <div className="overlay-desc">Bu sayfa daha önce fotoğraflanmış. Üzerine yazmak istiyor musun?</div>
+      <button className="btn-overlay-confirm" onClick={onConfirm}>✓ Üzerine Yaz</button>
+      <button className="btn-overlay-cancel" onClick={onCancel}>İptal</button>
+    </div>
+  );
+}
+
 // ─── Ana uygulama ──────────────────────────────────────────────────────
 
 export default function App() {
@@ -303,6 +317,7 @@ export default function App() {
   const [pages, setPages] = useState([]);
   const [stepOverlay, setStepOverlay] = useState(null);
   const [activePage, setActivePage] = useState(null);
+  const [confirmData, setConfirmData] = useState(null); // { form, qr }
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   const saveJournals = (list) => {
@@ -310,7 +325,6 @@ export default function App() {
     localStorage.setItem("ajanda_journals", JSON.stringify(list));
   };
 
-  // QR tara (native)
   const scanQR = async () => {
     if (!isNative) return null;
     await BarcodeScanner.requestPermissions();
@@ -318,7 +332,6 @@ export default function App() {
     return result?.barcodes?.[0]?.rawValue || null;
   };
 
-  // Fotoğraf çek
   const takePhoto = async () => {
     if (isNative) {
       const photo = await Camera.getPhoto({
@@ -340,7 +353,6 @@ export default function App() {
     }
   };
 
-  // Aktivasyon
   const handleActivate = async () => {
     setError("");
     if (!pin || pin.length < 4) { setError("PIN en az 4 karakter olmalı"); return; }
@@ -406,17 +418,24 @@ export default function App() {
     } catch {}
   };
 
+  const doUpload = async (form, qr, force = false) => {
+    const url = qr
+      ? `${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}${force ? "&force=true" : ""}`
+      : `${API}/upload?serial_no=${current.serial_no}${force ? "&force=true" : ""}`;
+    return await fetch(url, { method: "POST", body: form });
+  };
+
   const handleUploadPage = async () => {
     if (!current) return;
     setError("");
     setLoading(true);
     try {
-      let pageNo = null;
+      let qr = null;
       let blob = null;
 
       if (isNative) {
         setStepOverlay({ icon: "📷", title: "Sayfa QR'ını Tara", desc: "Sayfanın köşesindeki QR kodu okut" });
-        const qr = await scanQR();
+        qr = await scanQR();
         setStepOverlay(null);
         if (!qr) { setError("QR okunamadı"); setLoading(false); return; }
 
@@ -424,39 +443,29 @@ export default function App() {
         blob = await takePhoto();
         setStepOverlay(null);
         if (!blob) { setLoading(false); return; }
-
-        const form = new FormData();
-        form.append("file", blob, "page.jpg");
-        const res = await fetch(`${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}`, {
-          method: "POST", body: form
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 409) {
-           if (!window.confirm(`Sayfa zaten kayıtlı. Üzerine yazmak ister misin?`)) {
-              setLoading(false); return;
-            }
-            const res2 = await fetch(`${API}/upload?serial_no=${current.serial_no}&qr_hint=${encodeURIComponent(qr)}&force=true`, {
-              method: "POST", body: form
-            });
-            const data2 = await res2.json();
-            if (!res2.ok) { setError(data2.detail || "Hata"); setLoading(false); return; }
-          } else {
-            setError(data.detail || "Hata"); setLoading(false); return;
-          }
-        }
       } else {
         setStepOverlay({ icon: "📸", title: "Sayfa Fotoğrafı", desc: "QR kodu görünecek şekilde sayfayı seçin" });
         blob = await takePhoto();
         setStepOverlay(null);
         if (!blob) { setLoading(false); return; }
-        const form = new FormData();
-        form.append("file", blob, "page.jpg");
-        const res = await fetch(`${API}/upload?serial_no=${current.serial_no}`, {
-          method: "POST", body: form
-        });
-        const data = await res.json();
-        if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
+      }
+
+      const form = new FormData();
+      form.append("file", blob, "page.jpg");
+
+      const res = await doUpload(form, qr, false);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          // Confirm modal göster
+          setLoading(false);
+          setConfirmData({ form, qr });
+          return;
+        }
+        setError(data.detail || "Hata");
+        setLoading(false);
+        return;
       }
 
       await loadPages(current);
@@ -466,7 +475,19 @@ export default function App() {
     setLoading(false);
   };
 
-  // Şablon sayfası göster — boş veya dolu
+  const handleConfirmOverwrite = async () => {
+    if (!confirmData) return;
+    setConfirmData(null);
+    setLoading(true);
+    try {
+      const res = await doUpload(confirmData.form, confirmData.qr, true);
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Hata"); }
+      else { await loadPages(current); }
+    } catch { setError("Yükleme hatası"); }
+    setLoading(false);
+  };
+
   const renderPageCard = (pageData) => {
     const tplType = pageData.template_type || pageData.template?.type || "notes";
     const tplData = pageData.template_data;
@@ -494,7 +515,6 @@ export default function App() {
     );
   };
 
-  // Tüm şablon sayfalarını oluştur (dolu + boş)
   const renderAllPages = () => {
     const template = current?.template || {};
     const filledMap = {};
@@ -512,6 +532,10 @@ export default function App() {
   };
 
   // ─── UI ───
+
+  if (confirmData) {
+    return <ConfirmModal onConfirm={handleConfirmOverwrite} onCancel={() => setConfirmData(null)} />;
+  }
 
   if (stepOverlay) {
     return (
@@ -547,10 +571,7 @@ export default function App() {
           />
         </div>
         {activePage.is_empty && (
-          <button
-            className="btn-primary"
-            onClick={() => { setActivePage(null); handleUploadPage(); }}
-          >
+          <button className="btn-primary" onClick={() => { setActivePage(null); handleUploadPage(); }}>
             📸 Bu Sayfayı Fotoğrafla
           </button>
         )}
@@ -655,257 +676,115 @@ export default function App() {
   );
 }
 
-// ─── Stiller ──────────────────────────────────────────────────────────
-
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --theme: #2d4a3e;
-    --cream: #faf8f5;
-    --ink: #1a1512;
-    --warm: #8b6f5c;
-    --accent: #c4956a;
-    --border: #e2d9ce;
-    --soft: #f0ebe3;
-    --red: #e05c4b;
-    --green: #4caf50;
-  }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--cream);
-    color: var(--ink);
-    min-height: 100vh;
-  }
-
-  .screen {
-    min-height: 100vh;
-    padding: 24px 20px;
-    max-width: 480px;
-    margin: 0 auto;
-  }
-
-  /* ─── Home ─── */
+  :root { --theme: #2d4a3e; --cream: #faf8f5; --ink: #1a1512; --warm: #8b6f5c; --accent: #c4956a; --border: #e2d9ce; --soft: #f0ebe3; --red: #e05c4b; --green: #4caf50; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+  .screen { min-height: 100vh; padding: 24px 20px; max-width: 480px; margin: 0 auto; }
   .home-screen { display: flex; flex-direction: column; align-items: center; padding-top: 80px; gap: 20px; }
   .home-logo { font-family: 'Playfair Display', serif; font-size: 48px; font-weight: 700; }
   .logo-ajan { color: var(--ink); }
   .logo-da { color: var(--accent); }
   .home-tagline { color: var(--warm); font-size: 16px; margin-top: -12px; }
-
   .journals-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
   .journals-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
-  .journal-item {
-    display: flex; align-items: center; gap: 12px;
-    width: 100%; padding: 14px 16px;
-    border: 1.5px solid var(--border); border-radius: 12px;
-    background: white; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; font-size: 14px;
-    transition: all 0.2s; text-align: left;
-  }
+  .journal-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; background: white; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; text-align: left; }
   .journal-item:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(139,111,92,0.1); }
   .journal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .journal-name { flex: 1; font-weight: 600; }
   .journal-serial { color: var(--warm); font-size: 12px; }
   .journal-arrow { color: var(--warm); }
-
-  /* ─── Activate ─── */
   .activate-screen { display: flex; flex-direction: column; align-items: center; padding-top: 40px; gap: 16px; }
   .activate-icon { font-size: 60px; margin: 16px 0; }
   .activate-screen h2 { font-family: 'Playfair Display', serif; font-size: 28px; }
   .activate-screen p { color: var(--warm); text-align: center; font-size: 14px; }
-  .pin-input {
-    width: 100%; padding: 14px 16px;
-    border: 1.5px solid var(--border); border-radius: 12px;
-    font-size: 18px; font-family: 'DM Sans', sans-serif;
-    text-align: center; letter-spacing: 4px;
-    outline: none; transition: border-color 0.2s;
-  }
+  .pin-input { width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 18px; font-family: 'DM Sans', sans-serif; text-align: center; letter-spacing: 4px; outline: none; transition: border-color 0.2s; }
   .pin-input:focus { border-color: var(--accent); }
-
-  /* ─── Buttons ─── */
-  .btn-primary {
-    width: 100%; padding: 16px;
-    background: var(--ink); color: white;
-    border: none; border-radius: 14px;
-    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
-    cursor: pointer; transition: all 0.2s;
-  }
+  .btn-primary { width: 100%; padding: 16px; background: var(--ink); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
   .btn-primary:hover:not(:disabled) { background: var(--accent); transform: translateY(-1px); }
   .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  .back-btn {
-    background: none; border: none; font-family: 'DM Sans', sans-serif;
-    font-size: 14px; color: var(--warm); cursor: pointer; padding: 0; margin-bottom: 16px;
-    display: block;
-  }
-
-  .error-msg {
-    width: 100%; padding: 12px 16px;
-    background: #ffeaea; border: 1px solid #ffcdd2;
-    border-radius: 10px; color: var(--red); font-size: 13px; text-align: center;
-  }
-
-  /* ─── Dashboard ─── */
+  .back-btn { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--warm); cursor: pointer; padding: 0; margin-bottom: 16px; display: block; }
+  .error-msg { width: 100%; padding: 12px 16px; background: #ffeaea; border: 1px solid #ffcdd2; border-radius: 10px; color: var(--red); font-size: 13px; text-align: center; }
   .dashboard-screen { padding-top: 0; }
-  .dash-header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
-  }
-  .dash-theme-badge {
-    padding: 4px 12px; border-radius: 20px;
-    color: white; font-size: 13px; font-weight: 600;
-  }
+  .dash-header { display: flex; align-items: center; gap: 12px; padding: 16px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .dash-theme-badge { padding: 4px 12px; border-radius: 20px; color: white; font-size: 13px; font-weight: 600; }
   .dash-serial { flex: 1; color: var(--warm); font-size: 13px; }
   .dash-logout { background: none; border: none; font-size: 20px; cursor: pointer; }
-
-  .dash-stats {
-    display: flex; gap: 12px; margin-bottom: 16px;
-  }
-  .stat-item {
-    flex: 1; text-align: center; padding: 12px;
-    background: white; border-radius: 12px; border: 1px solid var(--border);
-  }
+  .dash-stats { display: flex; gap: 12px; margin-bottom: 16px; }
+  .stat-item { flex: 1; text-align: center; padding: 12px; background: white; border-radius: 12px; border: 1px solid var(--border); }
   .stat-num { display: block; font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--accent); }
   .stat-label { font-size: 11px; color: var(--warm); }
-
-  .btn-upload {
-    width: 100%; padding: 14px;
-    background: var(--theme); color: white;
-    border: none; border-radius: 14px;
-    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-    cursor: pointer; margin-bottom: 16px; transition: all 0.2s;
-  }
+  .btn-upload { width: 100%; padding: 14px; background: var(--theme); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 16px; transition: all 0.2s; }
   .btn-upload:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
   .btn-upload:disabled { opacity: 0.6; }
-
-  /* ─── Sayfa kartları ─── */
-  .pages-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 12px; padding-bottom: 24px;
-  }
-
-  .page-card {
-    border-radius: 12px; border: 1.5px solid var(--border);
-    background: white; overflow: hidden;
-    cursor: pointer; transition: all 0.2s;
-  }
+  .pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 24px; }
+  .page-card { border-radius: 12px; border: 1.5px solid var(--border); background: white; overflow: hidden; cursor: pointer; transition: all 0.2s; }
   .page-card:hover { border-color: var(--theme); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
   .page-card.empty { opacity: 0.7; }
-  .page-card.filled { border-color: var(--border); }
-
-  .page-card-header {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 10px; background: var(--soft);
-    border-bottom: 1px solid var(--border);
-  }
+  .page-card-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--soft); border-bottom: 1px solid var(--border); }
   .page-card-num { font-size: 10px; font-weight: 700; color: var(--warm); }
   .page-card-title { flex: 1; font-size: 11px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .page-card-badge { font-size: 10px; color: var(--green); }
-
-  .page-card-preview {
-    padding: 8px; min-height: 80px; max-height: 140px;
-    overflow: hidden; font-size: 0.75em;
-  }
-
-  /* ─── Detail ─── */
+  .page-card-preview { padding: 8px; min-height: 80px; max-height: 140px; overflow: hidden; font-size: 0.75em; }
   .detail-screen { display: flex; flex-direction: column; gap: 16px; }
-  .detail-header {
-    display: flex; align-items: center; gap: 12px;
-    padding-bottom: 12px; border-bottom: 1px solid var(--border);
-  }
+  .detail-header { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .detail-header .back-btn { margin-bottom: 0; }
   .detail-title { flex: 1; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; }
   .detail-page-no { color: var(--warm); font-size: 13px; }
-
   .detail-image-wrap { border-radius: 12px; overflow: hidden; }
   .detail-image { width: 100%; display: block; }
-
-  .detail-template {
-    background: white; border-radius: 12px;
-    border: 1px solid var(--border); padding: 16px;
-  }
-
-  /* ─── Template bileşenleri ─── */
-  .tpl-header {
-    font-weight: 700; font-size: 13px;
-    margin-bottom: 8px; color: var(--ink);
-    border-bottom: 2px solid var(--accent);
-    padding-bottom: 4px;
-  }
+  .detail-template { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 16px; }
+  .tpl-header { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: var(--ink); border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
   .tpl-empty-hint { font-size: 11px; color: var(--warm); font-style: italic; }
   .tpl-section { margin-top: 8px; }
   .tpl-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
   .tpl-date { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
   .tpl-notes-text { font-size: 12px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
-
   .tpl-todo-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
   .tpl-todo-item { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; }
   .tpl-todo-item.done { opacity: 0.5; text-decoration: line-through; }
   .tpl-checkbox { flex-shrink: 0; }
-
   .tpl-priority-item { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
   .tpl-num { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
   .tpl-schedule-item { font-size: 11px; color: var(--warm); border-left: 2px solid var(--border); padding-left: 6px; margin-bottom: 2px; }
-
   .tpl-goals-list { display: flex; flex-direction: column; gap: 6px; }
   .tpl-goal-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
   .tpl-goal-num { width: 20px; height: 20px; border-radius: 4px; background: var(--ink); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
-
   .tpl-habit-list { display: flex; flex-direction: column; gap: 4px; }
   .tpl-habit-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .tpl-habit-check { font-size: 14px; }
   .tpl-habit-check.done { color: var(--green); }
-
   .tpl-gratitude-list { display: flex; flex-direction: column; gap: 6px; }
   .tpl-gratitude-item { font-size: 12px; display: flex; align-items: flex-start; gap: 6px; }
   .tpl-heart { color: #e91e63; }
-
   .tpl-mood-text { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
   .tpl-mood-icons { display: flex; gap: 8px; font-size: 20px; }
-
   .tpl-water-glasses { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
   .tpl-glass { font-size: 16px; opacity: 0.3; }
   .tpl-glass.filled { opacity: 1; }
   .tpl-water-count { font-size: 12px; color: var(--warm); }
-
   .tpl-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 8px 0; }
   .tpl-week-day { text-align: center; }
   .tpl-week-day-name { font-size: 9px; color: var(--warm); font-weight: 600; }
-
   .tpl-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 8px 0; }
   .tpl-month-header { font-size: 8px; color: var(--warm); font-weight: 600; text-align: center; padding: 2px; }
   .tpl-month-day { font-size: 9px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 16px; border-radius: 2px; }
-
   .tpl-lines { display: flex; flex-direction: column; gap: 8px; }
   .tpl-line { height: 1px; background: var(--border); }
-
   .tpl-cover { border-radius: 8px; padding: 20px; color: white; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .tpl-cover-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; text-align: center; }
   .tpl-cover-subtitle { font-size: 11px; opacity: 0.8; margin-top: 4px; }
   .tpl-cover-date { font-size: 10px; opacity: 0.6; margin-top: 4px; }
   .tpl-cover-hint { font-size: 11px; opacity: 0.7; margin-top: 8px; }
-
   .tpl-item { font-size: 12px; margin-bottom: 3px; }
-
-  /* ─── Overlay ─── */
-  .overlay-screen {
-    min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 16px;
-    background: rgba(26,21,18,0.95); color: white; padding: 40px;
-  }
+  .overlay-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(26,21,18,0.95); color: white; padding: 40px; }
   .overlay-icon { font-size: 64px; }
   .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
   .overlay-desc { font-size: 14px; opacity: 0.7; text-align: center; line-height: 1.6; }
-
-  .spinner {
-    width: 40px; height: 40px; margin-top: 16px;
-    border: 3px solid rgba(255,255,255,0.2);
-    border-top-color: white; border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
+  .btn-overlay-confirm { width: 100%; max-width: 280px; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .btn-overlay-cancel { width: 100%; max-width: 280px; padding: 14px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; cursor: pointer; }
+  .spinner { width: 40px; height: 40px; margin-top: 16px; border: 3px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 `;
 
