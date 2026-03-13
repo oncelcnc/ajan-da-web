@@ -594,6 +594,11 @@ export default function App() {
   const [activePage, setActivePage] = useState(null);
   const [confirmData, setConfirmData] = useState(null); // { form, qr }
   const isNative = !!window.Capacitor?.isNativePlatform?.();
+  const [editData, setEditData] = useState(null);
+
+  useEffect(() => {
+    setEditData(null);
+  }, [activePage?.page_no]);
 
   const saveJournals = (list) => {
     setJournals(list);
@@ -829,12 +834,6 @@ export default function App() {
       </div>
     );
   }
-
-  const [editData, setEditData] = useState(null);
-
-  useEffect(() => {
-    setEditData(null);
-  }, [activePage?.page_no]);
 
   const handleSaveEdit = async (regionId, field, value) => {
     if (!activePage || !current) return;
