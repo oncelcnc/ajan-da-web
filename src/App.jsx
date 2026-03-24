@@ -3,7 +3,39 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 
 const API = "https://ajan-da-backend-production.up.railway.app";
+// App.jsx içinde bileşenlerin üst kısmına ekle
+const SketchOverlay = ({ vectorData }) => {
+  if (!vectorData) return null;
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+      pointerEvents: 'none', zIndex: 10, opacity: 0.9
+    }}>
+      <svg 
+        viewBox={vectorData.viewBox}
+        style={{ width: '100%', height: '100%' }}
+        dangerouslySetInnerHTML={{ __html: vectorData.svg_content }}
+      />
+    </div>
+  );
+};
+const handleCapture = async () => {
+  const image = await Camera.getPhoto({
+    quality: 90, resultType: CameraResultType.Base64, source: CameraSource.Camera
+  });
 
+  const formData = new FormData();
+  const res_blob = await fetch(`data:image/jpeg;base64,${image.base64String}`);
+  const blob = await res_blob.blob();
+  formData.append("file", blob, "user_sketch.jpg");
+
+  // Backend'e gönder ve vektörü al
+  const response = await fetch(`${API}/vectorize-sketch`, { method: "POST", body: formData });
+  const vectorData = await response.json();
+
+  // Bu veriyi state'e kaydet, SketchOverlay bunu ekrana basacak
+  setNotes(prev => ({ ...prev, current_vector: vectorData }));
+};
 // ─── YARDIMCI ────────────────────────────────────────────────────────
 const Empty = ({ msg }) => <div className="tpl-empty-hint">{msg || "Fotoğraflandıktan sonra görünecek"}</div>;
 const TplHeader = ({ icon, title }) => <div className="tpl-header">{icon} {title}</div>;
@@ -840,6 +872,7 @@ function TemplateNotes({ data, empty }) {
       )}
     </div>
   );
+  
 }
 
 // ─── ANA ROUTER ──────────────────────────────────────────────────────
