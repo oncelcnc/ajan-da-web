@@ -28,59 +28,7 @@ function TemplateTodo({ data, empty }) {
     </div>
   );
 }
-function TemplateBingo({ visual }) {
-  const marked = visual?.bingo?.visual?.marked_cells || [];
-  return (
-    <div className="bingo-card">
-      <div className="tpl-header">🎯 YILLIK BİNGO</div>
-      <div className="bingo-grid">
-        {Array.from({ length: 25 }).map((_, i) => (
-          <div key={i} className={`bingo-cell ${marked.includes(i) ? "active" : ""}`}>
-            {marked.includes(i) ? "X" : ""}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-function TemplateTicket({ visual, ocr }) {
-  const rating = visual?.rating?.visual?.rating || 0;
-  return (
-    <div className="ticket-view">
-      <div className="ticket-top">MOVIE NIGHT 🎟️</div>
-      <div className="stars">{"★".repeat(rating)}{"☆".repeat(5-rating)}</div>
-      <p className="ticket-title">{ocr?.split('\n')[0] || "Film Adı..."}</p>
-    </div>
-  );
-}
-
-function TemplateReading({ visual }) {
-  const count = visual?.shelf?.visual?.has_content ? 5 : 0; // Basit mantık
-  return (
-    <div className="reading-shelf">
-      <div className="tpl-header">📚 OKUMA TAKİBİ</div>
-      <div className="shelf-line">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className={`book-spine ${i < count ? "filled" : ""}`}></div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── SENİN PageTemplate SWITCH YAPISINA EKLE ───
-function RegionComponent({ type, data, ocr, themeColor }) {
-  const props = { visual: data, ocr, themeColor };
-  switch (type) {
-    case "bingo":       return <TemplateBingo {...props} />;
-    case "ticket":
-    case "rating":      return <TemplateTicket {...props} />;
-    case "reading_log": return <TemplateReading {...props} />;
-    // Senin eski case'lerin (todo, daily vb.) burada durmalı
-    default:            return <div className="notes-box">{ocr}</div>;
-  }
-}
 function TemplateDaily({ data, empty }) {
   if (empty) return (
     <div className="template-daily">
