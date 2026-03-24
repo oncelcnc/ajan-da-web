@@ -956,19 +956,36 @@ function RegionComponent({ regionId, region, onSave }) {
 function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave }) {
   if (!data) return <PageTemplate type={tplType} data={data} empty={true} themeColor={themeColor} />;
 
-  // Haftalik dikey: regions'daki sütunları tek template'e map et
-  const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2","haftalik_tekli1","haftalik_tekli2"];
+  // Haftalik: regions'daki günleri düz data'ya map et
+  const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2","haftalik_tekli1","haftalik_tekli2","haftalik_kapanisi","yemek_plan"];
   if (data.regions && haftalikTypes.includes(tplType)) {
     const r = data.regions;
+    const getVal = (region) => {
+      if (!region) return "";
+      const items = region.data?.items;
+      const content = region.data?.content;
+      if (Array.isArray(items) && items.length > 0) return items;
+      if (content) return content;
+      return "";
+    };
     const mapped = {
-      week:      r.header?.data?.title || "",
-      monday:    r.monday?.data?.items    || r.monday?.data?.content    || [],
-      tuesday:   r.tuesday?.data?.items   || r.tuesday?.data?.content   || [],
-      wednesday: r.wednesday?.data?.items || r.wednesday?.data?.content || [],
-      thursday:  r.thursday?.data?.items  || r.thursday?.data?.content  || [],
-      friday:    r.friday?.data?.items    || r.friday?.data?.content    || [],
-      saturday:  r.saturday?.data?.items  || r.saturday?.data?.content  || [],
-      sunday:    r.sunday?.data?.items    || r.sunday?.data?.content    || [],
+      week:      r.header?.data?.title || r.header?.data?.subtitle || "",
+      monday:    getVal(r.monday),
+      tuesday:   getVal(r.tuesday),
+      wednesday: getVal(r.wednesday),
+      thursday:  getVal(r.thursday),
+      friday:    getVal(r.friday),
+      saturday:  getVal(r.saturday),
+      sunday:    getVal(r.sunday),
+      notes:     getVal(r.notes),
+      // Haftalık kapanış için
+      energy_down:  getVal(r.energy_down),
+      proud:        getVal(r.proud),
+      release:      getVal(r.release),
+      lesson_rel:   getVal(r.lesson_rel),
+      lesson_work:  getVal(r.lesson_work),
+      lesson_self:  getVal(r.lesson_self),
+      next_intent:  getVal(r.next_intent),
     };
     return <PageTemplate type={tplType} data={mapped} empty={false} themeColor={themeColor} />;
   }
@@ -1188,6 +1205,27 @@ export default function App() {
     } catch(e) { console.error("Save error", e); }
   };
 
+  const mapHaftalikData = (tplType, tplData) => {
+    const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2","haftalik_tekli1","haftalik_tekli2","haftalik_kapanisi","yemek_plan"];
+    if (!tplData?.regions || !haftalikTypes.includes(tplType)) return tplData;
+    const r = tplData.regions;
+    const getVal = (region) => {
+      if (!region) return "";
+      const items = region.data?.items;
+      const content = region.data?.content;
+      if (Array.isArray(items) && items.length > 0) return items;
+      if (content) return content;
+      return "";
+    };
+    return {
+      week: r.header?.data?.title || "",
+      monday: getVal(r.monday), tuesday: getVal(r.tuesday),
+      wednesday: getVal(r.wednesday), thursday: getVal(r.thursday),
+      friday: getVal(r.friday), saturday: getVal(r.saturday),
+      sunday: getVal(r.sunday), notes: getVal(r.notes),
+    };
+  };
+
   const renderPageCard = (pageData) => {
     const regions = pageData.template?.regions;
     const firstRegion = regions?.[0];
@@ -1195,8 +1233,9 @@ export default function App() {
       || pageData.template?.design_id
       || (pageData.template_data?.design_id)
       || (pageData.template_data?.regions ? "multi" : firstRegion?.type || "notes");
-    const tplData = pageData.template_data;
-    const isEmpty = pageData.is_empty || !tplData;
+    const rawData = pageData.template_data;
+    const tplData = mapHaftalikData(tplType, rawData);
+    const isEmpty = pageData.is_empty || !rawData;
     return (
       <div key={pageData.page_no}
         className={`page-card ${isEmpty ? "empty" : "filled"}`}
