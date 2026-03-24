@@ -781,7 +781,24 @@ function TemplateBasPlanlayici({ data, empty }) {
     </div>
   );
 }
-
+// Şablon bileşeninin içinde (örneğin TemplateNotes)
+function VectorLayer({ svgData }) {
+  if (!svgData) return null;
+  
+  return (
+    <svg 
+      viewBox={`0 0 ${svgData.width} ${svgData.height}`}
+      style={{
+        position: 'absolute',
+        top: 0, left: 0,
+        width: '100%', height: '100%',
+        pointerEvents: 'none', // Altındaki butonlara tıklanabilsin
+        zIndex: 10
+      }}
+      dangerouslySetInnerHTML={{ __html: svgData.svg_content }}
+    />
+  );
+}
 function TemplateGunlukSukran({ data, empty }) {
   return (
     <div className="tpl-gunluk-sukran">
