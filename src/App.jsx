@@ -7,15 +7,24 @@ const API = "https://ajan-da-backend-production.up.railway.app";
 const SketchOverlay = ({ vectorData }) => {
   if (!vectorData) return null;
   return (
-    <div style={{
-      position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-      pointerEvents: 'none', zIndex: 10, opacity: 0.9
+    <div className="vector-result-area" style={{ 
+        marginTop: '20px', 
+        border: '2px dashed #2d4a3e', 
+        background: '#ffffff',
+        padding: '15px',
+        borderRadius: '10px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
     }}>
-      <svg 
-        viewBox={vectorData.viewBox}
-        style={{ width: '100%', height: '100%' }}
-        dangerouslySetInnerHTML={{ __html: vectorData.svg_content }}
-      />
+        <h3 style={{ color: '#2d4a3e', margin: '0 0 10px 0', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          🖋️ Vektörel Çizim Görünümü
+        </h3>
+        <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '4px' }}>
+            <svg 
+                viewBox={vectorData.viewBox}
+                dangerouslySetInnerHTML={{ __html: vectorData.svg_content }}
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+        </div>
     </div>
   );
 };
@@ -980,6 +989,7 @@ function ConfirmModal({ onConfirm, onCancel }) {
 // ─── ANA UYGULAMA ────────────────────────────────────────────────────
 export default function App() {
   const [step, setStep] = useState("home");
+  const [vectorData, setVectorData] = useState(null);
   const [journals, setJournals] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ajanda_journals") || "[]"); } catch { return []; }
   });
@@ -1120,7 +1130,16 @@ export default function App() {
         if (res.status === 409) { setLoading(false); setConfirmData({ form, qr }); return; }
         setError(data.detail || "Hata"); setLoading(false); return;
       }
-      await loadPages(current);
+      if (res.ok) {
+        // FOTOĞRAF YÜKLENDİKTEN SONRA VEKTÖRÜ İSTİYORUZ
+        try {
+          const vRes = await fetch(`${API}/vectorize-sketch`, { method: "POST", body: form });
+          const vData = await vRes.json();
+          setVectorData(vData); // Vektörü hafızaya al
+        } catch (e) { console.error("Vektörleştirme hatası", e); }
+        
+        
+    }
     } catch { setError("Yükleme hatası"); }
     setLoading(false);
   };
@@ -1180,50 +1199,29 @@ export default function App() {
     );
   }
 
-  if (activePage) {
+ if (activePage) {
     const firstActive = activePage.template?.regions?.[0];
     const tplType = activePage.template_type || firstActive?.type || "notes";
+    
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
-          <button className="back-btn" onClick={() => setActivePage(null)}>← Geri</button>
+          <button className="back-btn" onClick={() => { setActivePage(null); setVectorData(null); }}>← Geri</button>
           <span className="detail-title">{activePage.template?.title || `Sayfa ${activePage.page_no}`}</span>
           <span className="detail-page-no">#{activePage.page_no}</span>
         </div>
+
+        {/* ORİJİNAL FOTOĞRAF ALANI */}
         {activePage.image_url && (
           <div className="detail-image-wrap">
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
-        <div className="original-photo-section">
-  <img src={currentPhotoUrl} alt="Orijinal" style={{ width: '100%' }} />
-</div>
 
-<hr style={{ margin: '20px 0', border: '1px solid #ddd' }} />
+        {/* SENİN İSTEDİĞİN YENİ ALAN: VEKTÖR GÖRÜNÜMÜ */}
+        <SketchOverlay vectorData={vectorData} />
 
-{/* İSTEDİĞİN YENİ ALAN: Vektörel Çizim */}
-<div className="vector-drawing-section" style={{ 
-  background: '#fff', 
-  border: '1px dashed #2d4a3e', 
-  borderRadius: '8px',
-  padding: '10px',
-  minHeight: '200px'
-}}>
-  <h4 style={{ color: '#2d4a3e', marginTop: 0 }}>Vektörel Çizim Görünümü</h4>
-  
-  {pageData.vector ? (
-    <svg 
-      viewBox={pageData.vector.viewBox}
-      style={{ width: '100%', height: 'auto' }}
-      dangerouslySetInnerHTML={{ __html: pageData.vector.svg_content }}
-    />
-  ) : (
-    <div style={{ color: '#888', textAlign: 'center', paddingTop: '80px' }}>
-      Vektörel çizim oluşturuluyor veya henüz yüklenmedi...
-    </div>
-  )}
-</div>
-        <div className="detail-template">
+        <div className="detail-template" style={{ marginTop: '20px' }}>
           <EditablePageView
             tplType={tplType}
             data={editData || activePage.template_data}
