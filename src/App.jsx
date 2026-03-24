@@ -576,25 +576,37 @@ function TemplateDuygudurum({ data, empty }) {
 
 // Haftalık Dikey (2 sayfa — Pzt/Sal/Çar + highlight)
 function TemplateHaftalikDikey({ data, empty }) {
-  const dayNames = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-  const dayLabels = ["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"];
+  const days = [
+    {key:"monday",   short:"PAZ", weekend:false},
+    {key:"tuesday",  short:"SAL", weekend:false},
+    {key:"wednesday",short:"ÇAR", weekend:false},
+    {key:"thursday", short:"PER", weekend:false},
+    {key:"friday",   short:"CUM", weekend:false},
+    {key:"saturday", short:"CMT", weekend:true},
+    {key:"sunday",   short:"PAZ", weekend:true},
+  ];
+  const getItems = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") return val.split("\n").filter(Boolean);
+    return [];
+  };
   return (
     <div className="tpl-haftalik-dikey">
-      <TplHeader icon="↔️" title="Haftalık Plan" />
-      {data?.month && <div className="tpl-date">{data.month}</div>}
-      {data?.highlights && (
-        <div className="tpl-highlights">{data.highlights}</div>
-      )}
-      {empty ? <Empty /> : (
-        <div className="tpl-haftalik-days">
-          {dayNames.map((d, i) => data?.[d] !== undefined ? (
-            <div key={d} className="tpl-day-block">
-              <div className="tpl-day-name">{dayLabels[i]}</div>
-              <div className="tpl-day-content">{data[d] || ""}</div>
+      <TplHeader icon="📅" title="Haftalık Plan" />
+      {data?.week && <div className="tpl-date">{data.week}</div>}
+      <div className="tpl-hd-grid">
+        {days.map(d => (
+          <div key={d.key} className="tpl-hd-col">
+            <div className={`tpl-hd-header ${d.weekend ? "weekend" : ""}`}>{d.short}</div>
+            <div className="tpl-hd-body">
+              {empty ? null : getItems(data?.[d.key]).map((item, i) => (
+                <div key={i} className="tpl-hd-item">{item}</div>
+              ))}
             </div>
-          ) : null)}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -943,6 +955,25 @@ function RegionComponent({ regionId, region, onSave }) {
 
 function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave }) {
   if (!data) return <PageTemplate type={tplType} data={data} empty={true} themeColor={themeColor} />;
+
+  // Haftalik dikey: regions'daki sütunları tek template'e map et
+  const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2","haftalik_tekli1","haftalik_tekli2"];
+  if (data.regions && haftalikTypes.includes(tplType)) {
+    const r = data.regions;
+    const mapped = {
+      week:      r.header?.data?.title || "",
+      monday:    r.monday?.data?.items    || r.monday?.data?.content    || [],
+      tuesday:   r.tuesday?.data?.items   || r.tuesday?.data?.content   || [],
+      wednesday: r.wednesday?.data?.items || r.wednesday?.data?.content || [],
+      thursday:  r.thursday?.data?.items  || r.thursday?.data?.content  || [],
+      friday:    r.friday?.data?.items    || r.friday?.data?.content    || [],
+      saturday:  r.saturday?.data?.items  || r.saturday?.data?.content  || [],
+      sunday:    r.sunday?.data?.items    || r.sunday?.data?.content    || [],
+    };
+    return <PageTemplate type={tplType} data={mapped} empty={false} themeColor={themeColor} />;
+  }
+
+  // Çok bölgeli — her bölgeyi ayrı göster
   if (data.regions && Object.keys(data.regions).length > 1) {
     return (
       <div className="multi-region">
@@ -1486,6 +1517,12 @@ const styles = `
 
   /* Haftalık */
   .tpl-haftalik-days { display: flex; flex-direction: column; gap: 4px; }
+  .tpl-hd-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-top: 4px; border: 1px solid var(--border); }
+  .tpl-hd-col { display: flex; flex-direction: column; }
+  .tpl-hd-header { font-size: 8px; font-weight: 700; text-align: center; padding: 3px 1px; background: var(--soft); color: var(--ink); border-bottom: 1px solid var(--border); }
+  .tpl-hd-header.weekend { background: #1a1512; color: white; }
+  .tpl-hd-body { flex: 1; min-height: 60px; padding: 2px; border-right: 1px solid var(--border); }
+  .tpl-hd-item { font-size: 8px; color: var(--ink); line-height: 1.3; margin-bottom: 2px; }
   .tpl-day-block { border-left: 3px solid var(--accent); padding-left: 6px; }
   .tpl-day-name { font-size: 9px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
   .tpl-day-content { font-size: 10px; color: var(--ink); }
