@@ -1195,6 +1195,34 @@ export default function App() {
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
+        <div className="original-photo-section">
+  <img src={currentPhotoUrl} alt="Orijinal" style={{ width: '100%' }} />
+</div>
+
+<hr style={{ margin: '20px 0', border: '1px solid #ddd' }} />
+
+{/* İSTEDİĞİN YENİ ALAN: Vektörel Çizim */}
+<div className="vector-drawing-section" style={{ 
+  background: '#fff', 
+  border: '1px dashed #2d4a3e', 
+  borderRadius: '8px',
+  padding: '10px',
+  minHeight: '200px'
+}}>
+  <h4 style={{ color: '#2d4a3e', marginTop: 0 }}>Vektörel Çizim Görünümü</h4>
+  
+  {pageData.vector ? (
+    <svg 
+      viewBox={pageData.vector.viewBox}
+      style={{ width: '100%', height: 'auto' }}
+      dangerouslySetInnerHTML={{ __html: pageData.vector.svg_content }}
+    />
+  ) : (
+    <div style={{ color: '#888', textAlign: 'center', paddingTop: '80px' }}>
+      Vektörel çizim oluşturuluyor veya henüz yüklenmedi...
+    </div>
+  )}
+</div>
         <div className="detail-template">
           <EditablePageView
             tplType={tplType}
