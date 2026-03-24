@@ -1,88 +1,36 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 
 const API = "https://ajan-da-backend-production.up.railway.app";
 
-// ─── Şablon bileşenleri ───────────────────────────────────────────────
+// ─── YARDIMCI ────────────────────────────────────────────────────────
+const Empty = ({ msg }) => <div className="tpl-empty-hint">{msg || "Fotoğraflandıktan sonra görünecek"}</div>;
+const TplHeader = ({ icon, title }) => <div className="tpl-header">{icon} {title}</div>;
 
-function TemplateTodo({ data, empty }) {
-  const items = data?.items || [];
+// ─── ŞABLON BİLEŞENLERİ ──────────────────────────────────────────────
+
+function TemplateCover({ data, empty, themeColor }) {
   return (
-    <div className="template-todo">
-      <div className="tpl-header">✅ To-Do List</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Sayfayı fotoğraflayınca to-do listesi buraya gelecek</div>
-      ) : items.length === 0 ? (
-        <div className="tpl-empty-hint">İçerik bulunamadı</div>
-      ) : (
-        <ul className="tpl-todo-list">
-          {items.map((item, i) => (
-            <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
-              <span className="tpl-checkbox">{item.done ? "☑" : "☐"}</span>
-              <span>{item.text}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="tpl-cover" style={{ background: themeColor || "#2d4a3e" }}>
+      <div className="tpl-cover-title">{data?.title || "AJANDA"}</div>
+      {data?.subtitle && <div className="tpl-cover-sub">{data.subtitle}</div>}
+      {data?.date_range && <div className="tpl-cover-date">{data.date_range}</div>}
+      {empty && <div className="tpl-cover-hint">Kapak sayfası</div>}
     </div>
   );
 }
 
-function TemplateDaily({ data, empty }) {
-  if (empty) return (
-    <div className="template-daily">
-      <div className="tpl-header">📅 Günlük Plan</div>
-      <div className="tpl-empty-hint">Sayfayı fotoğraflayınca günlük planın buraya gelecek</div>
-    </div>
-  );
+function TemplateBingo({ data, empty, title }) {
+  const cells = data?.cells || [];
   return (
-    <div className="template-daily">
-      <div className="tpl-header">📅 Günlük Plan</div>
-      {data?.date && <div className="tpl-date">{data.date}</div>}
-      {data?.priorities?.length > 0 && (
-        <div className="tpl-section">
-          <div className="tpl-section-title">Öncelikler</div>
-          {data.priorities.map((p, i) => (
-            <div key={i} className="tpl-priority-item">
-              <span className="tpl-num">{i + 1}</span> {p}
-            </div>
-          ))}
-        </div>
-      )}
-      {data?.schedule?.length > 0 && (
-        <div className="tpl-section">
-          <div className="tpl-section-title">Program</div>
-          {data.schedule.map((s, i) => (
-            <div key={i} className="tpl-schedule-item">{s}</div>
-          ))}
-        </div>
-      )}
-      {data?.notes?.length > 0 && (
-        <div className="tpl-section">
-          <div className="tpl-section-title">Notlar</div>
-          <div className="tpl-notes-text">{data.notes.join("\n")}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TemplateGoals({ data, empty }) {
-  const goals = empty ? [] : Object.entries(data || {}).filter(([k]) => k.startsWith("goal_")).map(([, v]) => v).filter(Boolean);
-  return (
-    <div className="template-goals">
-      <div className="tpl-header">🎯 Hedefler</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Hedefleriniz fotoğraflandıktan sonra burada görünecek</div>
-      ) : goals.length === 0 ? (
-        <div className="tpl-empty-hint">Hedef bulunamadı</div>
-      ) : (
-        <div className="tpl-goals-list">
-          {goals.map((g, i) => (
-            <div key={i} className="tpl-goal-item">
-              <span className="tpl-goal-num">{i + 1}</span>
-              <span>{g}</span>
+    <div className="tpl-bingo">
+      <TplHeader icon="🎲" title={title || "Bingo"} />
+      {empty ? <Empty /> : (
+        <div className="tpl-bingo-grid">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className={`tpl-bingo-cell ${cells[i]?.checked ? "checked" : ""}`}>
+              <span>{cells[i]?.text || ""}</span>
             </div>
           ))}
         </div>
@@ -91,44 +39,16 @@ function TemplateGoals({ data, empty }) {
   );
 }
 
-function TemplateShopping({ data, empty }) {
-  const items = data?.items || [];
+function TemplateVisionBoard({ data, empty }) {
+  const boxes = data?.boxes || [];
   return (
-    <div className="template-shopping">
-      <div className="tpl-header">🛒 Alışveriş Listesi</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Alışveriş listeniz burada görünecek</div>
-      ) : items.length === 0 ? (
-        <div className="tpl-empty-hint">Liste boş</div>
-      ) : (
-        <ul className="tpl-todo-list">
-          {items.map((item, i) => (
-            <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
-              <span className="tpl-checkbox">{item.done ? "☑" : "☐"}</span>
-              <span>{item.text}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function TemplateHabit({ data, empty }) {
-  const habits = data?.habits || [];
-  return (
-    <div className="template-habit">
-      <div className="tpl-header">🔥 Alışkanlık Takibi</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Alışkanlıklarınız burada takip edilecek</div>
-      ) : habits.length === 0 ? (
-        <div className="tpl-empty-hint">Alışkanlık bulunamadı</div>
-      ) : (
-        <div className="tpl-habit-list">
-          {habits.map((h, i) => (
-            <div key={i} className="tpl-habit-item">
-              <span className={`tpl-habit-check ${h.completed ? "done" : ""}`}>{h.completed ? "✓" : "○"}</span>
-              <span>{h.name}</span>
+    <div className="tpl-vision">
+      <TplHeader icon="🎯" title="Vision Board" />
+      {empty ? <Empty /> : (
+        <div className="tpl-vision-grid">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="tpl-vision-box">
+              {boxes[i] && <span>{boxes[i]}</span>}
             </div>
           ))}
         </div>
@@ -137,20 +57,17 @@ function TemplateHabit({ data, empty }) {
   );
 }
 
-function TemplateGratitude({ data, empty }) {
-  const entries = data?.entries || [];
+function TemplateOnemliGunler({ data, empty }) {
+  const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
   return (
-    <div className="template-gratitude">
-      <div className="tpl-header">🌸 Şükran Günlüğü</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Şükran notlarınız burada görünecek</div>
-      ) : entries.length === 0 ? (
-        <div className="tpl-empty-hint">Not bulunamadı</div>
-      ) : (
-        <div className="tpl-gratitude-list">
-          {entries.map((e, i) => (
-            <div key={i} className="tpl-gratitude-item">
-              <span className="tpl-heart">♥</span> {e}
+    <div className="tpl-onemli">
+      <TplHeader icon="📅" title="Önemli Günler" />
+      {empty ? <Empty /> : (
+        <div className="tpl-onemli-grid">
+          {months.map((m, i) => (
+            <div key={i} className="tpl-onemli-month">
+              <div className="tpl-onemli-month-name">{m}</div>
+              <div className="tpl-onemli-content">{data?.[m.toLowerCase()] || ""}</div>
             </div>
           ))}
         </div>
@@ -159,81 +76,41 @@ function TemplateGratitude({ data, empty }) {
   );
 }
 
-function TemplateMood({ data, empty }) {
-  const moods = ["😢", "😕", "😐", "🙂", "😄"];
+function TemplateMutlulukSayaci({ data, empty }) {
+  const moodEmojis = { harika: "😄", iyi: "🙂", orta: "😐", kotu: "😕", berbat: "😢" };
+  const days = data?.days || {};
   return (
-    <div className="template-mood">
-      <div className="tpl-header">😊 Ruh Hali</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Ruh haliniz kaydedilince burada görünecek</div>
-      ) : (
-        <>
-          <div className="tpl-mood-text">{data?.mood || ""}</div>
-          <div className="tpl-mood-icons">
-            {moods.map((m, i) => (
-              <span key={i} className="tpl-mood-icon">{m}</span>
-            ))}
-          </div>
-          {data?.notes && <div className="tpl-notes-text">{data.notes}</div>}
-        </>
-      )}
-    </div>
-  );
-}
-
-function TemplateWater({ data, empty }) {
-  const glasses = empty ? 0 : (data?.glasses || 0);
-  const target = empty ? 8 : (data?.target || 8);
-  return (
-    <div className="template-water">
-      <div className="tpl-header">💧 Su Takibi</div>
-      <div className="tpl-water-glasses">
-        {Array.from({ length: target }).map((_, i) => (
-          <span key={i} className={`tpl-glass ${i < glasses ? "filled" : ""}`}>💧</span>
-        ))}
-      </div>
-      <div className="tpl-water-count">{glasses} / {target} bardak</div>
-      {empty && <div className="tpl-empty-hint">Fotoğraflandıktan sonra güncellenir</div>}
-    </div>
-  );
-}
-
-function TemplateWeekly({ data, empty }) {
-  const days = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-  return (
-    <div className="template-weekly">
-      <div className="tpl-header">📅 Haftalık Plan</div>
-      {empty ? (
-        <div className="tpl-empty-hint">Haftalık planınız burada görünecek</div>
-      ) : (
-        <>
-          {data?.week && <div className="tpl-date">{data.week}</div>}
-          <div className="tpl-week-grid">
-            {days.map((d) => (
-              <div key={d} className="tpl-week-day">
-                <div className="tpl-week-day-name">{d}</div>
+    <div className="tpl-mood-cal">
+      <TplHeader icon="😊" title="Mutluluk Planlayıcısı" />
+      {data?.month && <div className="tpl-date">{data.month}</div>}
+      {empty ? <Empty /> : (
+        <div className="tpl-mood-grid">
+          {["Paz","Sal","Çar","Per","Cum","Cmt","Paz"].map((d, i) => (
+            <div key={i} className="tpl-month-header">{d}</div>
+          ))}
+          {Array.from({ length: 35 }).map((_, i) => {
+            const day = i + 1;
+            const mood = day <= 31 ? days[day] : null;
+            return (
+              <div key={i} className={`tpl-mood-cell ${mood || ""}`}>
+                {day <= 31 && <span className="tpl-mood-day">{day}</span>}
+                {mood && <span className="tpl-mood-emoji">{moodEmojis[mood] || mood}</span>}
               </div>
-            ))}
-          </div>
-          {data?.achievements?.length > 0 && (
-            <div className="tpl-section">
-              <div className="tpl-section-title">Başarılar</div>
-              {data.achievements.map((a, i) => <div key={i} className="tpl-item">✓ {a}</div>)}
-            </div>
-          )}
-        </>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
-function TemplateNotes({ data, empty }) {
+function TemplateKendimeMektup({ data, empty }) {
   return (
-    <div className="template-notes">
-      <div className="tpl-header">📝 Notlar</div>
+    <div className="tpl-letter">
+      <TplHeader icon="✉️" title="Kendime Mektup" />
       {empty ? (
-        <div className="tpl-lines">
-          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="tpl-line" />)}
+        <div className="tpl-letter-lines">
+          {Array.from({ length: 18 }).map((_, i) => <div key={i} className="tpl-line" />)}
         </div>
       ) : (
         <div className="tpl-notes-text">{data?.content || ""}</div>
@@ -244,161 +121,799 @@ function TemplateNotes({ data, empty }) {
 
 function TemplateMonthly({ data, empty }) {
   const markedDays = data?.marked_days || [];
+  const days = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
   return (
-    <div className="template-monthly">
-      <div className="tpl-header">🗓 Aylık Takvim</div>
+    <div className="tpl-monthly">
+      <TplHeader icon="🗓" title="Aylık Takvim" />
       {data?.month && <div className="tpl-date">{data.month}</div>}
       <div className="tpl-month-grid">
-        {["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(d => (
-          <div key={d} className="tpl-month-header">{d}</div>
-        ))}
+        {days.map(d => <div key={d} className="tpl-month-header">{d}</div>)}
         {Array.from({ length: 35 }).map((_, i) => {
           const day = i + 1;
-          const isMarked = day <= 31 && markedDays.includes(day);
+          const marked = day <= 31 && markedDays.includes(day);
           return (
-            <div key={i} className={"tpl-month-day" + (isMarked ? " marked" : "")}>
+            <div key={i} className={`tpl-month-day ${marked ? "marked" : ""}`}>
               {day <= 31 ? day : ""}
             </div>
           );
         })}
       </div>
-      {empty && <div className="tpl-empty-hint">Fotoğraflandıktan sonra dolacak</div>}
+      {empty && <Empty />}
     </div>
   );
 }
 
-function TemplateCover({ data, empty, themeColor }) {
+function TemplateAylikPlanlayici({ data, empty }) {
   return (
-    <div className="template-cover" style={{ background: themeColor || "#2d4a3e" }}>
-      <div className="tpl-cover-title">{data?.title || "MANIFEST"}</div>
-      {data?.subtitle && <div className="tpl-cover-subtitle">{data.subtitle}</div>}
-      {data?.date_range && <div className="tpl-cover-date">{data.date_range}</div>}
-      {empty && <div className="tpl-cover-hint">Kapak sayfası</div>}
+    <div className="tpl-aylik-planlayici">
+      <TplHeader icon="📋" title="Aylık Planlayıcı" />
+      {empty ? <Empty /> : (
+        <>
+          <TemplateMonthly data={data?.calendar} empty={false} />
+          <div className="tpl-row" style={{ marginTop: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Yapılacaklar</div>
+              {(data?.todo || []).map((t, i) => <div key={i} className="tpl-item">☐ {t}</div>)}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Notlar</div>
+              <div className="tpl-notes-text">{data?.notes || ""}</div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function RegionComponent({ type, data, empty, themeColor }) {
+function TemplateDersPlani({ data, empty }) {
+  const days = data?.days || {};
+  return (
+    <div className="tpl-ders">
+      <TplHeader icon="📚" title="Aylık Ders Planı" />
+      {empty ? <Empty /> : (
+        <div className="tpl-ders-grid">
+          {Array.from({ length: 31 }).map((_, i) => (
+            <div key={i} className="tpl-ders-day">
+              <div className="tpl-ders-day-num">GÜN {i + 1}</div>
+              <div className="tpl-ders-content">{days[i + 1] || ""}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateFilmDizi({ data, empty }) {
+  const items = data?.items || [];
+  return (
+    <div className="tpl-film">
+      <TplHeader icon="🎬" title="Film-Dizi Takip" />
+      {empty ? <Empty /> : (
+        <table className="tpl-table">
+          <thead>
+            <tr><th>☐</th><th>Tür</th><th>Film/Dizi</th><th>⭐</th></tr>
+          </thead>
+          <tbody>
+            {items.length === 0
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}><td>☐</td><td></td><td></td><td>☆☆☆☆☆</td></tr>
+                ))
+              : items.map((it, i) => (
+                  <tr key={i}>
+                    <td>{it.done ? "☑" : "☐"}</td>
+                    <td>{it.genre || ""}</td>
+                    <td>{it.name || ""}</td>
+                    <td>{"★".repeat(it.rating || 0)}{"☆".repeat(5 - (it.rating || 0))}</td>
+                  </tr>
+                ))
+            }
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function TemplateFilmSerit({ data, empty }) {
+  return (
+    <div className="tpl-filmserit">
+      <TplHeader icon="🎥" title="Bu Ayın Filmleri" />
+      {empty ? <Empty /> : (
+        <div className="tpl-filmserit-grid">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div key={i} className="tpl-film-frame">{data?.items?.[i] || ""}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateSpor({ data, empty }) {
+  const days = data?.days || {};
+  return (
+    <div className="tpl-spor">
+      <TplHeader icon="🏃" title="Spor Planı" />
+      {data?.date && <div className="tpl-date">{data.date}</div>}
+      {empty ? <Empty /> : (
+        <div className="tpl-spor-grid">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div key={i} className="tpl-spor-cell">
+              <div className="tpl-spor-num">GÜN {i + 1}</div>
+              <div className="tpl-spor-content">{days[i + 1] || ""}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateOkumaTakip({ data, empty }) {
+  const books = data?.books || [];
+  return (
+    <div className="tpl-okuma">
+      <TplHeader icon="📖" title="Okuma Takip" />
+      {empty ? <Empty /> : (
+        <div className="tpl-okuma-cols">
+          <div className="tpl-okuma-col">
+            {Array.from({ length: 25 }).map((_, i) => (
+              <div key={i} className="tpl-okuma-item">
+                <span className="tpl-okuma-num">{i + 1}</span>
+                <span className="tpl-okuma-line">{books[i] || ""}</span>
+              </div>
+            ))}
+          </div>
+          <div className="tpl-okuma-col">
+            {Array.from({ length: 25 }).map((_, i) => (
+              <div key={i} className="tpl-okuma-item">
+                <span className="tpl-okuma-num">{i + 26}</span>
+                <span className="tpl-okuma-line">{books[i + 25] || ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateOkumaTablo({ data, empty }) {
+  const rows = data?.rows || [];
+  return (
+    <div className="tpl-okuma-tablo">
+      <TplHeader icon="📖" title="Okuma Takip" />
+      {empty ? <Empty /> : (
+        <table className="tpl-table">
+          <thead><tr><th>Tarih</th><th>Kitap</th><th>Yazar</th></tr></thead>
+          <tbody>
+            {rows.length === 0
+              ? Array.from({ length: 10 }).map((_, i) => <tr key={i}><td></td><td></td><td></td></tr>)
+              : rows.map((r, i) => <tr key={i}><td>{r.date}</td><td>{r.book}</td><td>{r.author}</td></tr>)
+            }
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function TemplateKitapRafi({ data, empty }) {
+  return (
+    <div className="tpl-kitapraf">
+      <TplHeader icon="📚" title="Kitap Okuma Takibi" />
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-kitapraf-shelves">
+            {Array.from({ length: 3 }).map((_, shelf) => (
+              <div key={shelf} className="tpl-shelf">
+                {Array.from({ length: 8 }).map((_, b) => (
+                  <div key={b} className={`tpl-book ${data?.books?.[shelf * 8 + b] ? "filled" : ""}`}>
+                    {data?.books?.[shelf * 8 + b] || ""}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          {data?.start && <div className="tpl-date">Başlangıç: {data.start}</div>}
+          {data?.end && <div className="tpl-date">Bitiş: {data.end}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateSifreTakip({ data, empty }) {
+  const entries = data?.entries || [];
+  return (
+    <div className="tpl-sifre">
+      <TplHeader icon="🔐" title="Şifrelerim" />
+      {empty ? <Empty /> : (
+        <div className="tpl-sifre-grid">
+          {(entries.length === 0 ? Array.from({ length: 8 }).map(() => ({})) : entries).map((e, i) => (
+            <div key={i} className="tpl-sifre-card">
+              <div className="tpl-sifre-site">{e.website || "Web site:"}</div>
+              <div className="tpl-sifre-user">{e.username ? `👤 ${e.username}` : "Kullanıcı adı:"}</div>
+              <div className="tpl-sifre-pass">{e.password ? "🔑 ••••••" : "Şifre:"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateEgzersizTakip({ data, empty }) {
+  const months = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Ekt","Kas","Ara"];
+  const grid = data?.grid || {};
+  return (
+    <div className="tpl-egzersiz">
+      <TplHeader icon="💪" title="Egzersiz Takibi" />
+      {empty ? <Empty /> : (
+        <div className="tpl-eg-grid">
+          <div className="tpl-eg-row tpl-eg-header">
+            <div className="tpl-eg-day"></div>
+            {months.map(m => <div key={m} className="tpl-eg-month">{m}</div>)}
+          </div>
+          {Array.from({ length: 31 }).map((_, d) => (
+            <div key={d} className="tpl-eg-row">
+              <div className="tpl-eg-day">{String(d + 1).padStart(2, '0')}</div>
+              {months.map((m, mi) => (
+                <div key={mi} className={`tpl-eg-cell ${grid[`${d + 1}-${mi + 1}`] ? "done" : ""}`}></div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateAliskanlik({ data, empty }) {
+  const habits = data?.habits || [];
+  return (
+    <div className="tpl-aliskanlik">
+      <TplHeader icon="🔥" title="Alışkanlık Takibi" />
+      {data?.month && <div className="tpl-date">{data.month}</div>}
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-habit-list">
+            {habits.map((h, i) => (
+              <div key={i} className="tpl-habit-item">
+                <span className={`tpl-habit-check ${h.completed ? "done" : ""}`}>{h.completed ? "✓" : "○"}</span>
+                <span>{h.name}</span>
+                {h.days_done?.length > 0 && <span className="tpl-habit-days">({h.days_done.length} gün)</span>}
+              </div>
+            ))}
+          </div>
+          {data?.notes && <div className="tpl-notes-text" style={{ marginTop: 8 }}>{data.notes}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateButce({ data, empty }) {
+  const expenses = data?.expenses || [];
+  const income = data?.income || [];
+  return (
+    <div className="tpl-butce">
+      <TplHeader icon="💰" title="Aylık Bütçe Takip" />
+      {empty ? <Empty /> : (
+        <>
+          {data?.goals?.length > 0 && (
+            <div className="tpl-section">
+              <div className="tpl-section-title">Finansal Hedefler</div>
+              {data.goals.map((g, i) => <div key={i} className="tpl-item">{i + 1}. {g}</div>)}
+            </div>
+          )}
+          <div className="tpl-row" style={{ gap: 8, marginTop: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Harcamalar</div>
+              <table className="tpl-table">
+                <thead><tr><th>Tarih</th><th>Tür</th><th>₺</th></tr></thead>
+                <tbody>{expenses.map((e, i) => <tr key={i}><td>{e.date}</td><td>{e.type}</td><td>{e.amount}</td></tr>)}</tbody>
+              </table>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Gelir</div>
+              <table className="tpl-table">
+                <thead><tr><th>Tarih</th><th>Tür</th><th>₺</th></tr></thead>
+                <tbody>{income.map((e, i) => <tr key={i}><td>{e.date}</td><td>{e.type}</td><td>{e.amount}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateAylikGozlem({ data, empty }) {
+  return (
+    <div className="tpl-gozlem">
+      <TplHeader icon="🔍" title="Aylık Gözlem" />
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-row" style={{ gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Minnettar Olduklarım</div>
+              {(data?.grateful || []).map((g, i) => <div key={i} className="tpl-item">○ {g}</div>)}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Bu Ay İçin Puanım</div>
+              <div style={{ fontSize: 18 }}>{"★".repeat(data?.score || 0)}{"☆".repeat(5 - (data?.score || 0))}</div>
+            </div>
+          </div>
+          <div className="tpl-row" style={{ gap: 12, marginTop: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Bu Ay Nasıldı?</div>
+              <div className="tpl-notes-text">{data?.how_was_it || ""}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Geliştirmelerim</div>
+              {(data?.improvements || []).map((g, i) => <div key={i} className="tpl-item">{g}</div>)}
+            </div>
+          </div>
+          {data?.intentions && (
+            <div className="tpl-section" style={{ marginTop: 8 }}>
+              <div className="tpl-section-title">Gelecek Ay Niyetlerim</div>
+              <div className="tpl-notes-text">{data.intentions}</div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateAylikSukran({ data, empty }) {
+  const entries = data?.entries || [];
+  return (
+    <div className="tpl-aylik-sukran">
+      <TplHeader icon="🌸" title="Aylık Şükran Sayfam" />
+      {empty ? <Empty /> : (
+        <div className="tpl-sukran-list">
+          {Array.from({ length: 31 }).map((_, i) => (
+            <div key={i} className="tpl-sukran-item">
+              <span className="tpl-sukran-num">{i + 1}</span>
+              <span className="tpl-sukran-text">{entries[i] || ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateRegl({ data, empty }) {
+  const months = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Ekt","Kas","Ara"];
+  const grid = data?.grid || {};
+  return (
+    <div className="tpl-regl">
+      <TplHeader icon="🌸" title="Regl Takibi" />
+      {empty ? <Empty /> : (
+        <div className="tpl-eg-grid" style={{ fontSize: "0.65em" }}>
+          <div className="tpl-eg-row tpl-eg-header">
+            <div className="tpl-eg-day"></div>
+            {months.map(m => <div key={m} className="tpl-eg-month">{m}</div>)}
+          </div>
+          {Array.from({ length: 31 }).map((_, d) => (
+            <div key={d} className="tpl-eg-row">
+              <div className="tpl-eg-day">{String(d + 1).padStart(2, '0')}</div>
+              {months.map((m, mi) => (
+                <div key={mi} className={`tpl-eg-cell ${grid[`${d + 1}-${mi + 1}`] || ""}`}></div>
+              ))}
+            </div>
+          ))}
+          {data?.notes && <div className="tpl-notes-text" style={{ marginTop: 6 }}>{data.notes}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateDuygudurum({ data, empty }) {
+  const months = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Ekt","Kas","Ara"];
+  const moodColors = { harika: "#4caf50", neseli: "#8bc34a", normal: "#ffc107", mutsuz: "#ff5722" };
+  const grid = data?.grid || {};
+  return (
+    <div className="tpl-duygu">
+      <TplHeader icon="😊" title="Duygudurum Takibi" />
+      {empty ? <Empty /> : (
+        <div className="tpl-eg-grid" style={{ fontSize: "0.65em" }}>
+          <div className="tpl-eg-row tpl-eg-header">
+            <div className="tpl-eg-day"></div>
+            {months.map(m => <div key={m} className="tpl-eg-month">{m}</div>)}
+          </div>
+          {Array.from({ length: 31 }).map((_, d) => (
+            <div key={d} className="tpl-eg-row">
+              <div className="tpl-eg-day">{String(d + 1).padStart(2, '0')}</div>
+              {months.map((m, mi) => {
+                const mood = grid[`${d + 1}-${mi + 1}`];
+                return (
+                  <div key={mi} className="tpl-eg-cell"
+                    style={{ background: mood ? moodColors[mood] || "#ddd" : "transparent" }}>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateHaftalikDikey({ data, empty }) {
+  const dayKeys = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+  const dayLabels = ["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"];
+  return (
+    <div className="tpl-haftalik-dikey">
+      <TplHeader icon="↔️" title="Haftalık Plan" />
+      {data?.month && <div className="tpl-date">{data.month}</div>}
+      {data?.highlights && <div className="tpl-highlights">{data.highlights}</div>}
+      {empty ? <Empty /> : (
+        <div className="tpl-haftalik-days">
+          {dayKeys.map((d, i) => data?.[d] !== undefined ? (
+            <div key={d} className="tpl-day-block">
+              <div className="tpl-day-name">{dayLabels[i]}</div>
+              <div className="tpl-day-content">{data[d] || ""}</div>
+            </div>
+          ) : null)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateHaftalikTekli1({ data, empty }) {
+  const days = [
+    { key: "monday", label: "Pazartesi" }, { key: "tuesday", label: "Salı" },
+    { key: "wednesday", label: "Çarşamba" }, { key: "thursday", label: "Perşembe" },
+    { key: "friday", label: "Cuma" }, { key: "saturday", label: "Cumartesi" },
+    { key: "sunday", label: "Pazar" },
+  ];
+  return (
+    <div className="tpl-haftalik-tekli">
+      <TplHeader icon="1️⃣" title="Haftalık" />
+      {data?.month && <div className="tpl-date">{data.month}</div>}
+      {empty ? <Empty /> : (
+        <div className="tpl-tekli-grid">
+          {days.map(d => (
+            <div key={d.key} className="tpl-tekli-box">
+              <div className="tpl-day-name">{d.label}</div>
+              <div className="tpl-day-content">{data?.[d.key] || ""}</div>
+            </div>
+          ))}
+          {data?.notes && (
+            <div className="tpl-tekli-box">
+              <div className="tpl-day-name">Notlar</div>
+              <div className="tpl-day-content">{data.notes}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateHaftalikTekli2({ data, empty }) {
+  const days = [
+    { key: "monday", label: "Pazartesi" }, { key: "tuesday", label: "Salı" },
+    { key: "wednesday", label: "Çarşamba" }, { key: "thursday", label: "Perşembe" },
+    { key: "friday", label: "Cuma" }, { key: "saturday", label: "Cumartesi" },
+    { key: "sunday", label: "Pazar" },
+  ];
+  return (
+    <div className="tpl-haftalik-tekli2">
+      <TplHeader icon="2️⃣" title="Haftalık" />
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-tekli2-days">
+            {days.map(d => (
+              <div key={d.key} className="tpl-tekli2-day">
+                <div className="tpl-day-name">{d.label}</div>
+                {(data?.[d.key] || []).map((item, i) => <div key={i} className="tpl-item">○ {item}</div>)}
+              </div>
+            ))}
+          </div>
+          {data?.habits?.length > 0 && (
+            <div className="tpl-section" style={{ marginTop: 8 }}>
+              <div className="tpl-section-title">Alışkanlıklar</div>
+              {data.habits.map((h, i) => (
+                <div key={i} className="tpl-habit-item">
+                  <span>{h.name}</span>
+                  <div className="tpl-habit-dots">
+                    {Array.from({ length: 7 }).map((_, d) => (
+                      <span key={d} className={`tpl-habit-dot ${h.days?.[d] ? "done" : ""}`}>○</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateHaftalikKapanis({ data, empty }) {
+  return (
+    <div className="tpl-kapanis">
+      <TplHeader icon="📊" title="Haftalık Kapanış" />
+      {data?.date && <div className="tpl-date">{data.date}</div>}
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-section-title">Geçen Haftanın Analizi</div>
+          <div className="tpl-row" style={{ gap: 6 }}>
+            {[["energy_down","Enerji Düşüren"],["proud","Gurur Duyulan"],["release","Bırakılan"]].map(([k, l]) => (
+              <div key={k} style={{ flex: 1, background: "#fce4ec", borderRadius: 8, padding: 6 }}>
+                <div className="tpl-section-title">{l}</div>
+                <div className="tpl-notes-text">{data?.[k] || ""}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tpl-section-title" style={{ marginTop: 8 }}>Haftanın 3 Ana Dersi</div>
+          <div className="tpl-row" style={{ gap: 6 }}>
+            {[["lesson_rel","İlişkilerde"],["lesson_work","İşte/Okulda"],["lesson_self","Kendimle"]].map(([k, l]) => (
+              <div key={k} style={{ flex: 1, background: "#e0f7fa", borderRadius: 8, padding: 6 }}>
+                <div className="tpl-section-title">{l}</div>
+                <div className="tpl-notes-text">{data?.[k] || ""}</div>
+              </div>
+            ))}
+          </div>
+          {data?.next_intent && (
+            <div className="tpl-section" style={{ marginTop: 8 }}>
+              <div className="tpl-section-title">Gelecek Hafta Niyeti</div>
+              <div className="tpl-notes-text">{data.next_intent}</div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateYemekPlani({ data, empty }) {
+  const days = [
+    { key: "monday", label: "Pazartesi" }, { key: "tuesday", label: "Salı" },
+    { key: "wednesday", label: "Çarşamba" }, { key: "thursday", label: "Perşembe" },
+    { key: "friday", label: "Cuma" }, { key: "saturday", label: "Cumartesi" },
+    { key: "sunday", label: "Pazar" },
+  ];
+  return (
+    <div className="tpl-yemek">
+      <TplHeader icon="🍽️" title="Haftalık Yemek Planı" />
+      {empty ? <Empty /> : (
+        <div className="tpl-yemek-grid">
+          {days.map(d => (
+            <div key={d.key} className="tpl-yemek-day">
+              <div className="tpl-day-name">{d.label}</div>
+              <div className="tpl-day-content">{data?.[d.key] || ""}</div>
+            </div>
+          ))}
+          {data?.shopping?.length > 0 && (
+            <div className="tpl-yemek-day">
+              <div className="tpl-day-name">🛒 Alışveriş</div>
+              {data.shopping.map((s, i) => <div key={i} className="tpl-item">○ {s}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateGunlukCizgili({ data, empty }) {
+  return (
+    <div className="tpl-gunluk-cizgili">
+      <TplHeader icon="📝" title="Günlük" />
+      {data?.date && <div className="tpl-date">{data.date}</div>}
+      {empty ? (
+        <>
+          <div className="tpl-row" style={{ gap: 8, marginBottom: 8 }}>
+            <div style={{ flex: 1, border: "1px solid #e2d9ce", borderRadius: 8, padding: 8, minHeight: 60 }}>
+              <div className="tpl-section-title">Öncelikler</div>
+            </div>
+            <div style={{ flex: 1, border: "1px solid #e2d9ce", borderRadius: 8, padding: 8, minHeight: 60 }}>
+              <div className="tpl-section-title">Notlar</div>
+            </div>
+          </div>
+          <div className="tpl-lines">
+            {Array.from({ length: 14 }).map((_, i) => <div key={i} className="tpl-line" />)}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="tpl-row" style={{ gap: 8, marginBottom: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Öncelikler</div>
+              {(data?.priorities || []).map((p, i) => (
+                <div key={i} className="tpl-priority-item">
+                  <span className="tpl-num">{i + 1}</span>{p}
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="tpl-section-title">Notlar</div>
+              <div className="tpl-notes-text">{data?.notes || ""}</div>
+            </div>
+          </div>
+          <div className="tpl-notes-text">{data?.content || ""}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateBasPlanlayici({ data, empty }) {
+  const hours = ["6:00","7:00","8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"];
+  const schedule = data?.schedule || {};
+  return (
+    <div className="tpl-bas">
+      <div className="tpl-row" style={{ gap: 4 }}>
+        {data?.day && <span className="tpl-section-title">GÜN: {data.day}</span>}
+        {data?.date && <span className="tpl-section-title">TARİH: {data.date}</span>}
+      </div>
+      {empty ? <Empty /> : (
+        <div className="tpl-row" style={{ gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            {hours.map(h => (
+              <div key={h} className="tpl-schedule-item">
+                <span className="tpl-hour">{h}</span>
+                <span>{schedule[h] || ""}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="tpl-section-title">YAPILACAKLAR</div>
+            {(data?.todo || []).map((t, i) => <div key={i} className="tpl-item">☐ {t}</div>)}
+            <div className="tpl-section-title" style={{ marginTop: 8 }}>NOTLAR</div>
+            <div className="tpl-notes-text">{data?.notes || ""}</div>
+            {data?.mood && <div style={{ marginTop: 8 }}>MOD: {data.mood}</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateGunlukSukran({ data, empty }) {
+  return (
+    <div className="tpl-gunluk-sukran">
+      <TplHeader icon="🌟" title="Günlük Şükran Sayfam" />
+      {empty ? <Empty /> : (
+        <>
+          <div className="tpl-row" style={{ gap: 8 }}>
+            <div style={{ flex: 1, background: "#e3f2fd", borderRadius: 8, padding: 8 }}>
+              <div className="tpl-section-title">Bugünün Olumlaması</div>
+              <div className="tpl-notes-text">{data?.affirmation || ""}</div>
+            </div>
+            <div style={{ flex: 1, background: "#e3f2fd", borderRadius: 8, padding: 8 }}>
+              <div className="tpl-section-title">Bugünün Öncelikleri</div>
+              {(data?.priorities || []).map((p, i) => <div key={i} className="tpl-item">{i + 1}. {p}</div>)}
+            </div>
+          </div>
+          <div style={{ background: "#e3f2fd", borderRadius: 8, padding: 8, margin: "8px 0" }}>
+            <div className="tpl-section-title">Bugün Minnettar Olduğum Şeyler</div>
+            <div className="tpl-notes-text">{data?.grateful || ""}</div>
+          </div>
+          <div style={{ background: "#e3f2fd", borderRadius: 8, padding: 8 }}>
+            <div className="tpl-section-title">Sabırsızlıkla Beklediğim Şeyler</div>
+            <div className="tpl-notes-text">{data?.looking_fwd || ""}</div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TemplateNotes({ data, empty }) {
+  return (
+    <div className="tpl-notes">
+      <TplHeader icon="📝" title="Notlar" />
+      {empty ? (
+        <div className="tpl-lines">{Array.from({ length: 14 }).map((_, i) => <div key={i} className="tpl-line" />)}</div>
+      ) : (
+        <div className="tpl-notes-text">{data?.content || ""}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── ANA ROUTER ──────────────────────────────────────────────────────
+function PageTemplate({ type, data, empty, themeColor }) {
   const props = { data, empty, themeColor };
   switch (type) {
-    case "todo":
-    case "todos":        return <TemplateTodo {...props} />;
-    case "daily":        return <TemplateDaily {...props} />;
-    case "goals":        return <TemplateGoals {...props} />;
-    case "shopping":     return <TemplateShopping {...props} />;
-    case "habit":
-    case "habits":       return <TemplateHabit {...props} />;
-    case "gratitude":    return <TemplateGratitude {...props} />;
-    case "mood":
-    case "mood_water":   return <TemplateMood {...props} />;
-    case "water":        return <TemplateWater {...props} />;
-    case "weekly":
-    case "weekly_days":
-    case "weekly_summary": return <TemplateWeekly {...props} />;
-    case "monthly":      return <TemplateMonthly {...props} />;
-    case "cover":        return <TemplateCover {...props} />;
-    case "priorities":
-    case "schedule":
-    case "wins":
-    case "next_goals":
-    case "reflection":
-    case "header":       return <TemplateNotes {...props} />;
-    default:              return <TemplateNotes {...props} />;
+    case "cover":                        return <TemplateCover {...props} />;
+    case "yillik_bingo":                 return <TemplateBingo {...props} title="Yıllık Bingo" />;
+    case "aylik_bingo":                  return <TemplateBingo {...props} title="Aylık Bingo" />;
+    case "bingo_grid":                   return <TemplateBingo {...props} />;
+    case "vision_board":
+    case "vision_boxes":                 return <TemplateVisionBoard {...props} />;
+    case "onemli_gunler":                return <TemplateOnemliGunler {...props} />;
+    case "mutluluk_sayaci":
+    case "mood_calendar":                return <TemplateMutlulukSayaci {...props} />;
+    case "kendime_mektup":
+    case "letter":                       return <TemplateKendimeMektup {...props} />;
+    case "monthly":
+    case "aylik_takvim":
+    case "monthly_grid":                 return <TemplateMonthly {...props} />;
+    case "aylik_planlayici":             return <TemplateAylikPlanlayici {...props} />;
+    case "ders_plani":
+    case "daily_grid_31":                return <TemplateDersPlani {...props} />;
+    case "film_dizi_plani":
+    case "film_table":                   return <TemplateFilmDizi {...props} />;
+    case "film_dizi_takip":
+    case "film_strip":                   return <TemplateFilmSerit {...props} />;
+    case "spor_plani":
+    case "sport_grid_30":                return <TemplateSpor {...props} />;
+    case "okuma_takip":
+    case "numbered_list_50":             return <TemplateOkumaTakip {...props} />;
+    case "okuma_takip_2":
+    case "reading_table":                return <TemplateOkumaTablo {...props} />;
+    case "okuma_takip_3":
+    case "book_shelves":                 return <TemplateKitapRafi {...props} />;
+    case "sifre_takip":
+    case "password_list":                return <TemplateSifreTakip {...props} />;
+    case "egzersiz_takip":
+    case "habit_year_grid":              return <TemplateEgzersizTakip {...props} />;
+    case "aliskanlik":
+    case "habit_circle":                 return <TemplateAliskanlik {...props} />;
+    case "butce_takip":
+    case "budget_table":                 return <TemplateButce {...props} />;
+    case "aylik_gozlem":                 return <TemplateAylikGozlem {...props} />;
+    case "aylik_sukran":
+    case "numbered_list_31":             return <TemplateAylikSukran {...props} />;
+    case "regl_takibi":
+    case "period_grid":                  return <TemplateRegl {...props} />;
+    case "duygudurum_takibi":
+    case "mood_grid":                    return <TemplateDuygudurum {...props} />;
+    case "haftalik_yatay":
+    case "haftalik_yatay_2":
+    case "haftalik_dikey":
+    case "day_col":
+    case "day_notes":                    return <TemplateHaftalikDikey {...props} />;
+    case "haftalik_tekli1":
+    case "day_box":                      return <TemplateHaftalikTekli1 {...props} />;
+    case "haftalik_tekli2":
+    case "day_bullets":                  return <TemplateHaftalikTekli2 {...props} />;
+    case "haftalik_kapanisi":            return <TemplateHaftalikKapanis {...props} />;
+    case "yemek_plan":
+    case "meal_box":                     return <TemplateYemekPlani {...props} />;
+    case "gunluk_cizgili":
+    case "lined_notes":                  return <TemplateGunlukCizgili {...props} />;
+    case "bas_planlayici":
+    case "schedule":                     return <TemplateBasPlanlayici {...props} />;
+    case "gunluk_sukran":                return <TemplateGunlukSukran {...props} />;
+    default:                             return <TemplateNotes {...props} />;
   }
 }
 
-function PageTemplate({ type, data, empty, themeColor }) {
-  // Çok bölgeli sayfa
-  if (data?.regions && Object.keys(data.regions).length > 1) {
+function EditablePageView({ tplType, data, empty, themeColor }) {
+  if (!data) return <PageTemplate type={tplType} data={data} empty={true} themeColor={themeColor} />;
+  if (data.regions && Object.keys(data.regions).length > 1) {
     return (
       <div className="multi-region">
         {Object.entries(data.regions).map(([rid, region]) => (
           <div key={rid} className="region-block">
             <div className="region-label">{region.label}</div>
-            <RegionComponent
-              type={region.type}
-              data={region.data}
-              empty={empty || !region.data}
-              themeColor={themeColor}
-            />
+            <PageTemplate type={region.type} data={region.data} empty={!region.data} themeColor={themeColor} />
           </div>
         ))}
       </div>
     );
   }
-  // Tek bölge — eski davranış
-  const props = { data, empty, themeColor };
-  return <RegionComponent type={type} {...props} />;
+  if (data.regions) {
+    const [rid, region] = Object.entries(data.regions)[0];
+    return <PageTemplate type={region.type} data={region.data} empty={!region.data} themeColor={themeColor} />;
+  }
+  return <PageTemplate type={tplType} data={data} empty={empty} themeColor={themeColor} />;
 }
-
-// ─── Inline Edit ─────────────────────────────────────────────────────
-
-function EditableText({ value, onSave, multiline = false }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(value || "");
-  if (!editing) return (
-    <span className="editable-text" onClick={() => setEditing(true)}>
-      {val || <span className="editable-placeholder">Düzenlemek için tıkla</span>}
-      <span className="edit-pencil">✏️</span>
-    </span>
-  );
-  return (
-    <span className="editable-active">
-      {multiline
-        ? <textarea className="edit-textarea" value={val} onChange={e => setVal(e.target.value)} autoFocus rows={3} />
-        : <input className="edit-input" value={val} onChange={e => setVal(e.target.value)} autoFocus />
-      }
-      <button className="edit-save-btn" onClick={() => { onSave(val); setEditing(false); }}>✓</button>
-      <button className="edit-cancel-btn" onClick={() => { setVal(value || ""); setEditing(false); }}>✗</button>
-    </span>
-  );
-}
-
-function EditableTodoList({ items, onSave }) {
-  const [editing, setEditing] = useState(false);
-  const [list, setList] = useState(items || []);
-  if (!editing) return (
-    <div>
-      <ul className="tpl-todo-list">
-        {list.map((item, i) => (
-          <li key={i} className={`tpl-todo-item ${item.done ? "done" : ""}`}>
-            <span className="tpl-checkbox" onClick={() => {
-              const updated = list.map((it, idx) => idx === i ? {...it, done: !it.done} : it);
-              setList(updated);
-              onSave(updated);
-            }}>{item.done ? "☑" : "☐"}</span>
-            <span>{item.text}</span>
-          </li>
-        ))}
-      </ul>
-      <button className="edit-region-btn" onClick={() => setEditing(true)}>✏️ Düzenle</button>
-    </div>
-  );
-  return (
-    <div className="edit-todo-editor">
-      {list.map((item, i) => (
-        <div key={i} className="edit-todo-row">
-          <span className="tpl-checkbox" onClick={() => setList(list.map((it, idx) => idx === i ? {...it, done: !it.done} : it))}>
-            {item.done ? "☑" : "☐"}
-          </span>
-          <input
-            className="edit-input"
-            value={item.text}
-            onChange={e => setList(list.map((it, idx) => idx === i ? {...it, text: e.target.value} : it))}
-          />
-          <button className="edit-delete-btn" onClick={() => setList(list.filter((_, idx) => idx !== i))}>✗</button>
-        </div>
-      ))}
-      <button className="edit-add-btn" onClick={() => setList([...list, {text: "", done: false}])}>+ Ekle</button>
-      <div className="edit-actions">
-        <button className="edit-save-btn" onClick={() => { onSave(list); setEditing(false); }}>✓ Kaydet</button>
-        <button className="edit-cancel-btn" onClick={() => { setList(items || []); setEditing(false); }}>İptal</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Confirm Modal ────────────────────────────────────────────────────
 
 function ConfirmModal({ onConfirm, onCancel }) {
   return (
@@ -412,174 +927,7 @@ function ConfirmModal({ onConfirm, onCancel }) {
   );
 }
 
-// ─── Düzenlenebilir sayfa görünümü ────────────────────────────────────
-
-function EditableRegion({ regionId, region, onSave }) {
-  const type = region.type;
-  const data = region.data || {};
-
-  if (type === "todo" || type === "todos" || type === "shopping") {
-    return (
-      <div>
-        <div className="tpl-header">{type === "shopping" ? "🛒 Alışveriş" : "✅ Yapılacaklar"}</div>
-        <EditableTodoList
-          items={data.items || []}
-          onSave={(items) => onSave(regionId, "items", items)}
-        />
-      </div>
-    );
-  }
-
-  if (type === "notes" || type === "reflection" || type === "wins" || type === "next_goals") {
-    return (
-      <div>
-        <div className="tpl-header">📝 {region.label}</div>
-        <EditableText
-          value={data.content || data.items?.join("\n") || ""}
-          multiline={true}
-          onSave={(val) => onSave(regionId, "content", val)}
-        />
-      </div>
-    );
-  }
-
-  if (type === "monthly") {
-    return <TemplateMonthly data={data} empty={false} />;
-  }
-
-  if (type === "gratitude") {
-    return (
-      <div>
-        <div className="tpl-header">🌸 Şükran</div>
-        {(data.entries || []).map((e, i) => (
-          <div key={i} className="tpl-gratitude-item">
-            <span className="tpl-heart">♥</span>
-            <EditableText value={e} onSave={(val) => {
-              const entries = [...(data.entries || [])];
-              entries[i] = val;
-              onSave(regionId, "entries", entries);
-            }} />
-          </div>
-        ))}
-        <button className="edit-add-btn" onClick={() => {
-          const entries = [...(data.entries || []), ""];
-          onSave(regionId, "entries", entries);
-        }}>+ Ekle</button>
-      </div>
-    );
-  }
-
-  if (type === "mood") {
-    return (
-      <div>
-        <div className="tpl-header">😊 Ruh Hali</div>
-        <EditableText value={data.mood || ""} onSave={(val) => onSave(regionId, "mood", val)} />
-        <div style={{marginTop: 8}}>
-          <EditableText value={data.notes || ""} multiline onSave={(val) => onSave(regionId, "notes", val)} />
-        </div>
-      </div>
-    );
-  }
-
-  if (type === "goals") {
-    const goals = Object.entries(data).filter(([k]) => k.startsWith("goal_"));
-    return (
-      <div>
-        <div className="tpl-header">🎯 Hedefler</div>
-        {goals.map(([k, v], i) => (
-          <div key={k} className="tpl-goal-item" style={{marginBottom: 6}}>
-            <span className="tpl-goal-num">{i+1}</span>
-            <EditableText value={v} onSave={(val) => onSave(regionId, k, val)} />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === "habit") {
-    return (
-      <div>
-        <div className="tpl-header">🔥 Alışkanlıklar</div>
-        <EditableTodoList
-          items={(data.habits || []).map(h => ({text: h.name, done: h.completed}))}
-          onSave={(items) => onSave(regionId, "habits", items.map(it => ({name: it.text, completed: it.done})))}
-        />
-      </div>
-    );
-  }
-
-  if (type === "cover" || type === "header") {
-    return (
-      <div>
-        <div className="tpl-header">📖 {region.label}</div>
-        <EditableText value={data.title || ""} onSave={(val) => onSave(regionId, "title", val)} />
-      </div>
-    );
-  }
-
-  // Fallback
-  return (
-    <div>
-      <div className="tpl-header">{region.label}</div>
-      <EditableText
-        value={data.content || ""}
-        multiline
-        onSave={(val) => onSave(regionId, "content", val)}
-      />
-    </div>
-  );
-}
-
-function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave }) {
-  if (!data) return <PageTemplate type={tplType} data={data} empty={true} themeColor={themeColor} />;
-
-  // Çok bölgeli sayfa
-  if (data.regions && Object.keys(data.regions).length > 1) {
-    return (
-      <div className="multi-region">
-        {Object.entries(data.regions).map(([rid, region]) => (
-          <div key={rid} className="region-block">
-            <div className="region-label">{region.label}</div>
-            <EditableRegion
-              regionId={rid}
-              region={region}
-              onSave={onSave}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // Tek bölge — regions varsa ilk bölgeyi al, yoksa düz data
-  if (data.regions) {
-    const [rid, region] = Object.entries(data.regions)[0];
-    return <EditableRegion regionId={rid} region={region} onSave={onSave} />;
-  }
-
-  // Eski format — düz data
-  if (tplType === "todo" || tplType === "shopping") {
-    return (
-      <div>
-        <div className="tpl-header">{tplType === "shopping" ? "🛒 Alışveriş" : "✅ Yapılacaklar"}</div>
-        <EditableTodoList items={data.items || []} onSave={(items) => onSave(null, "items", items)} />
-      </div>
-    );
-  }
-  if (tplType === "notes") {
-    return (
-      <div>
-        <div className="tpl-header">📝 Notlar</div>
-        <EditableText value={data.content || ""} multiline onSave={(val) => onSave(null, "content", val)} />
-      </div>
-    );
-  }
-  // Diğerleri read-only göster
-  return <PageTemplate type={tplType} data={data} empty={empty} themeColor={themeColor} />;
-}
-
-// ─── Ana uygulama ──────────────────────────────────────────────────────
-
+// ─── ANA UYGULAMA ────────────────────────────────────────────────────
 export default function App() {
   const [step, setStep] = useState("home");
   const [journals, setJournals] = useState(() => {
@@ -592,13 +940,11 @@ export default function App() {
   const [pages, setPages] = useState([]);
   const [stepOverlay, setStepOverlay] = useState(null);
   const [activePage, setActivePage] = useState(null);
-  const [confirmData, setConfirmData] = useState(null); // { form, qr }
-  const isNative = !!window.Capacitor?.isNativePlatform?.();
+  const [confirmData, setConfirmData] = useState(null);
   const [editData, setEditData] = useState(null);
+  const isNative = !!window.Capacitor?.isNativePlatform?.();
 
-  useEffect(() => {
-    setEditData(null);
-  }, [activePage?.page_no]);
+  useEffect(() => { setEditData(null); }, [activePage?.page_no]);
 
   const saveJournals = (list) => {
     setJournals(list);
@@ -615,18 +961,15 @@ export default function App() {
   const takePhoto = async () => {
     if (isNative) {
       const photo = await Camera.getPhoto({
-        quality: 85,
-        resultType: CameraResultType.Base64,
-        source: CameraSource.Camera,
-        correctOrientation: true,
+        quality: 85, resultType: CameraResultType.Base64,
+        source: CameraSource.Camera, correctOrientation: true,
       });
       const res = await fetch(`data:image/jpeg;base64,${photo.base64String}`);
       return await res.blob();
     } else {
       return new Promise((resolve) => {
         const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
+        input.type = "file"; input.accept = "image/*";
         input.onchange = (e) => resolve(e.target.files[0]);
         input.click();
       });
@@ -640,13 +983,13 @@ export default function App() {
     try {
       let res;
       if (isNative) {
-        setStepOverlay({ icon: "📷", title: "Kapak QR'ını Tara", desc: "Ajandanın kapağındaki QR kodu lens ile okut" });
+        setStepOverlay({ icon: "📷", title: "Kapak QR'ını Tara", desc: "Ajandanın kapağındaki QR kodu okut" });
         const qr = await scanQR();
         setStepOverlay(null);
         if (!qr) { setError("QR okunamadı"); setLoading(false); return; }
         res = await fetch(`${API}/activate_qr?qr=${encodeURIComponent(qr)}&pin=${pin}`, { method: "POST" });
       } else {
-        setStepOverlay({ icon: "📸", title: "Kapak Fotoğrafı", desc: "Ajandanın kapağını QR kodu görünecek şekilde fotoğraflayın" });
+        setStepOverlay({ icon: "📸", title: "Kapak Fotoğrafı", desc: "QR kodu görünecek şekilde fotoğraflayın" });
         const blob = await takePhoto();
         setStepOverlay(null);
         if (!blob) { setLoading(false); return; }
@@ -656,23 +999,17 @@ export default function App() {
       }
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
-
       const journal = {
-        serial_no: data.serial_no,
-        theme_id: data.theme_id,
-        theme_name: data.theme_name,
-        theme_color: data.theme_color,
-        pin,
-        template: data.template,
+        serial_no: data.serial_no, theme_id: data.theme_id,
+        theme_name: data.theme_name, theme_color: data.theme_color,
+        pin, template: data.template,
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
       saveJournals(updated);
       setCurrent(journal);
       await loadPages(journal);
       setStep("dashboard");
-    } catch (e) {
-      setError("Bağlantı hatası");
-    }
+    } catch { setError("Bağlantı hatası"); }
     setLoading(false);
   };
 
@@ -707,63 +1044,45 @@ export default function App() {
 
   const handleUploadPage = async () => {
     if (!current) return;
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     try {
-      let qr = null;
-      let blob = null;
-
+      let qr = null, blob = null;
       if (isNative) {
         setStepOverlay({ icon: "📷", title: "Sayfa QR'ını Tara", desc: "Sayfanın köşesindeki QR kodu okut" });
         qr = await scanQR();
         setStepOverlay(null);
         if (!qr) { setError("QR okunamadı"); setLoading(false); return; }
-
-        setStepOverlay({ icon: "📸", title: "Sayfayı Fotoğrafla", desc: "Sayfanın tamamını net şekilde fotoğraflayın" });
+        setStepOverlay({ icon: "📸", title: "Sayfayı Fotoğrafla", desc: "Sayfanın tamamını net fotoğraflayın" });
         blob = await takePhoto();
         setStepOverlay(null);
         if (!blob) { setLoading(false); return; }
       } else {
-        setStepOverlay({ icon: "📸", title: "Sayfa Fotoğrafı", desc: "QR kodu görünecek şekilde sayfayı seçin" });
+        setStepOverlay({ icon: "📸", title: "Sayfa Fotoğrafı", desc: "QR kodu görünecek şekilde seçin" });
         blob = await takePhoto();
         setStepOverlay(null);
         if (!blob) { setLoading(false); return; }
       }
-
       const form = new FormData();
       form.append("file", blob, "page.jpg");
-
       const res = await doUpload(form, qr, false);
       const data = await res.json();
-
       if (!res.ok) {
-        if (res.status === 409) {
-          // Confirm modal göster
-          setLoading(false);
-          setConfirmData({ form, qr });
-          return;
-        }
-        setError(data.detail || "Hata");
-        setLoading(false);
-        return;
+        if (res.status === 409) { setLoading(false); setConfirmData({ form, qr }); return; }
+        setError(data.detail || "Hata"); setLoading(false); return;
       }
-
       await loadPages(current);
-    } catch (e) {
-      setError("Yükleme hatası");
-    }
+    } catch { setError("Yükleme hatası"); }
     setLoading(false);
   };
 
   const handleConfirmOverwrite = async () => {
     if (!confirmData) return;
-    setConfirmData(null);
-    setLoading(true);
+    setConfirmData(null); setLoading(true);
     try {
       const res = await doUpload(confirmData.form, confirmData.qr, true);
       const data = await res.json();
-      if (!res.ok) { setError(data.detail || "Hata"); }
-      else { await loadPages(current); }
+      if (!res.ok) setError(data.detail || "Hata");
+      else await loadPages(current);
     } catch { setError("Yükleme hatası"); }
     setLoading(false);
   };
@@ -771,58 +1090,34 @@ export default function App() {
   const renderPageCard = (pageData) => {
     const regions = pageData.template?.regions;
     const firstRegion = regions?.[0];
-    const tplType = pageData.template_type ||
-      (pageData.template_data?.regions
-        ? "multi"
-        : firstRegion?.type || "notes");
+    const tplType = pageData.template_type || firstRegion?.type || "notes";
     const tplData = pageData.template_data;
     const isEmpty = pageData.is_empty || !tplData;
     return (
-      <div
-        key={pageData.page_no}
+      <div key={pageData.page_no}
         className={`page-card ${isEmpty ? "empty" : "filled"}`}
-        onClick={() => setActivePage(pageData)}
-      >
+        onClick={() => setActivePage(pageData)}>
         <div className="page-card-header">
           <span className="page-card-num">Sayfa {pageData.page_no}</span>
           <span className="page-card-title">{pageData.template?.title || tplType}</span>
           {!isEmpty && <span className="page-card-badge">✓</span>}
         </div>
         <div className="page-card-preview">
-          <PageTemplate
-            type={tplType}
-            data={tplData}
-            empty={isEmpty}
-            themeColor={current?.theme_color}
-          />
+          <PageTemplate type={tplType} data={tplData} empty={isEmpty} themeColor={current?.theme_color} />
         </div>
       </div>
     );
   };
 
   const renderAllPages = () => {
-    const template = current?.template || {};
     const filledMap = {};
     pages.forEach(p => { filledMap[p.page_no] = p; });
-
-    const allPages = Object.entries(template).map(([pageNo, tpl]) => {
-      const no = parseInt(pageNo);
-      const filled = filledMap[no];
-      const firstRegion = tpl.regions?.[0];
-      const tplType = firstRegion?.type || tpl.type || "notes";
-      if (filled) return { ...filled, template: tpl };
-      return { page_no: no, template: tpl, template_type: tplType, template_data: null, is_empty: true, image_url: null };
-    });
-
-    allPages.sort((a, b) => a.page_no - b.page_no);
-    return allPages.map(renderPageCard);
+    return pages.map(p => renderPageCard(p));
   };
 
-  // ─── UI ───
+  // ─── UI ──────────────────────────────────────────────────────────
 
-  if (confirmData) {
-    return <ConfirmModal onConfirm={handleConfirmOverwrite} onCancel={() => setConfirmData(null)} />;
-  }
+  if (confirmData) return <ConfirmModal onConfirm={handleConfirmOverwrite} onCancel={() => setConfirmData(null)} />;
 
   if (stepOverlay) {
     return (
@@ -835,33 +1130,9 @@ export default function App() {
     );
   }
 
-  const handleSaveEdit = async (regionId, field, value) => {
-    if (!activePage || !current) return;
-    const updated = JSON.parse(JSON.stringify(editData || activePage.template_data || {}));
-    if (regionId && updated.regions?.[regionId]) {
-      updated.regions[regionId].data[field] = value;
-    } else {
-      updated[field] = value;
-    }
-    setEditData(updated);
-    try {
-      await fetch(`${API}/page/${current.serial_no}/${activePage.page_no}`, {
-        method: "PUT",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({template_data: updated})
-      });
-      // pages listesini güncelle
-      setPages(prev => prev.map(p =>
-        p.page_no === activePage.page_no ? {...p, template_data: updated} : p
-      ));
-    } catch(e) { console.error("Save error", e); }
-  };
-
   if (activePage) {
-    const activeRegions = activePage.template?.regions;
-    const firstActiveRegion = activeRegions?.[0];
-    const tplType = activePage.template_type ||
-      (activePage.template_data?.regions ? "multi" : firstActiveRegion?.type || "notes");
+    const firstActive = activePage.template?.regions?.[0];
+    const tplType = activePage.template_type || firstActive?.type || "notes";
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
@@ -876,12 +1147,10 @@ export default function App() {
         )}
         <div className="detail-template">
           <EditablePageView
-            activePage={activePage}
             tplType={tplType}
             data={editData || activePage.template_data}
             empty={activePage.is_empty}
             themeColor={current?.theme_color}
-            onSave={handleSaveEdit}
           />
         </div>
         {activePage.is_empty && (
@@ -897,41 +1166,21 @@ export default function App() {
     return (
       <div className="screen dashboard-screen" style={{ "--theme": current.theme_color || "#2d4a3e" }}>
         <div className="dash-header">
-          <div className="dash-theme-badge" style={{ background: current.theme_color }}>
-            {current.theme_name}
-          </div>
+          <div className="dash-theme-badge" style={{ background: current.theme_color || "#2d4a3e" }}>{current.theme_name}</div>
           <div className="dash-serial">#{current.serial_no}</div>
           <button className="dash-logout" onClick={() => { setCurrent(null); setStep("home"); }}>↩</button>
         </div>
-
         <div className="dash-stats">
           <div className="stat-item">
             <span className="stat-num">{pages.length}</span>
             <span className="stat-label">Fotoğraflanan</span>
           </div>
-          <div className="stat-item">
-            <span className="stat-num">{Object.keys(current.template || {}).length}</span>
-            <span className="stat-label">Toplam Sayfa</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-num">
-              {Object.keys(current.template || {}).length > 0
-                ? Math.round(pages.length / Object.keys(current.template).length * 100)
-                : 0}%
-            </span>
-            <span className="stat-label">Doluluk</span>
-          </div>
         </div>
-
         <button className="btn-upload" onClick={handleUploadPage} disabled={loading}>
           {loading ? "⏳ Yükleniyor..." : "📸 Sayfa Fotoğrafla"}
         </button>
-
         {error && <div className="error-msg">{error}</div>}
-
-        <div className="pages-grid">
-          {renderAllPages()}
-        </div>
+        <div className="pages-grid">{renderAllPages()}</div>
       </div>
     );
   }
@@ -943,15 +1192,9 @@ export default function App() {
         <div className="activate-icon">📒</div>
         <h2>Ajanda Aktive Et</h2>
         <p>Kapak QR'ını okutarak ajandanı sisteme ekle</p>
-        <input
-          className="pin-input"
-          type="password"
-          inputMode="numeric"
-          placeholder="PIN oluştur (min 4 karakter)"
-          value={pin}
-          onChange={e => setPin(e.target.value)}
-          maxLength={8}
-        />
+        <input className="pin-input" type="password" inputMode="numeric"
+          placeholder="PIN oluştur (min 4 karakter)" value={pin}
+          onChange={e => setPin(e.target.value)} maxLength={8} />
         {error && <div className="error-msg">{error}</div>}
         <button className="btn-primary" onClick={handleActivate} disabled={loading}>
           {loading ? "⏳..." : isNative ? "📷 QR Tara & Aktive Et" : "📸 Kapak Fotoğrafı Yükle"}
@@ -962,11 +1205,8 @@ export default function App() {
 
   return (
     <div className="screen home-screen">
-      <div className="home-logo">
-        <span className="logo-ajan">AJAN</span><span className="logo-da">-DA</span>
-      </div>
+      <div className="home-logo"><span className="logo-ajan">AJAN</span><span className="logo-da">-DA</span></div>
       <div className="home-tagline">Ajandanı dijitalleştir</div>
-
       {journals.length > 0 && (
         <div className="journals-list">
           <div className="journals-title">Ajandalarım</div>
@@ -980,16 +1220,13 @@ export default function App() {
           ))}
         </div>
       )}
-
       {error && <div className="error-msg">{error}</div>}
-
-      <button className="btn-primary" onClick={() => setStep("activate")}>
-        + Yeni Ajanda Ekle
-      </button>
+      <button className="btn-primary" onClick={() => setStep("activate")}>+ Yeni Ajanda Ekle</button>
     </div>
   );
 }
 
+// ─── STİLLER ─────────────────────────────────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -998,22 +1235,19 @@ const styles = `
   .screen { min-height: 100vh; padding: 24px 20px; max-width: 480px; margin: 0 auto; }
   .home-screen { display: flex; flex-direction: column; align-items: center; padding-top: 80px; gap: 20px; }
   .home-logo { font-family: 'Playfair Display', serif; font-size: 48px; font-weight: 700; }
-  .logo-ajan { color: var(--ink); }
-  .logo-da { color: var(--accent); }
+  .logo-ajan { color: var(--ink); } .logo-da { color: var(--accent); }
   .home-tagline { color: var(--warm); font-size: 16px; margin-top: -12px; }
-  .journals-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+  .journals-list { width: 100%; display: flex; flex-direction: column; gap: 8px; }
   .journals-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
   .journal-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; background: white; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; text-align: left; }
-  .journal-item:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(139,111,92,0.1); }
+  .journal-item:hover { border-color: var(--accent); }
   .journal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .journal-name { flex: 1; font-weight: 600; }
-  .journal-serial { color: var(--warm); font-size: 12px; }
-  .journal-arrow { color: var(--warm); }
+  .journal-name { flex: 1; font-weight: 600; } .journal-serial { color: var(--warm); font-size: 12px; } .journal-arrow { color: var(--warm); }
   .activate-screen { display: flex; flex-direction: column; align-items: center; padding-top: 40px; gap: 16px; }
   .activate-icon { font-size: 60px; margin: 16px 0; }
   .activate-screen h2 { font-family: 'Playfair Display', serif; font-size: 28px; }
   .activate-screen p { color: var(--warm); text-align: center; font-size: 14px; }
-  .pin-input { width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 18px; font-family: 'DM Sans', sans-serif; text-align: center; letter-spacing: 4px; outline: none; transition: border-color 0.2s; }
+  .pin-input { width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 18px; font-family: 'DM Sans', sans-serif; text-align: center; letter-spacing: 4px; outline: none; }
   .pin-input:focus { border-color: var(--accent); }
   .btn-primary { width: 100%; padding: 16px; background: var(--ink); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
   .btn-primary:hover:not(:disabled) { background: var(--accent); transform: translateY(-1px); }
@@ -1030,8 +1264,7 @@ const styles = `
   .stat-num { display: block; font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--accent); }
   .stat-label { font-size: 11px; color: var(--warm); }
   .btn-upload { width: 100%; padding: 14px; background: var(--theme); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 16px; transition: all 0.2s; }
-  .btn-upload:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-  .btn-upload:disabled { opacity: 0.6; }
+  .btn-upload:hover:not(:disabled) { opacity: 0.9; } .btn-upload:disabled { opacity: 0.6; }
   .pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 24px; }
   .page-card { border-radius: 12px; border: 1.5px solid var(--border); background: white; overflow: hidden; cursor: pointer; transition: all 0.2s; }
   .page-card:hover { border-color: var(--theme); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
@@ -1046,81 +1279,108 @@ const styles = `
   .detail-header .back-btn { margin-bottom: 0; }
   .detail-title { flex: 1; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; }
   .detail-page-no { color: var(--warm); font-size: 13px; }
-  .detail-image-wrap { border-radius: 12px; overflow: hidden; }
-  .detail-image { width: 100%; display: block; }
+  .detail-image-wrap { border-radius: 12px; overflow: hidden; } .detail-image { width: 100%; display: block; }
   .detail-template { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 16px; }
-  .tpl-header { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: var(--ink); border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
-  .tpl-empty-hint { font-size: 11px; color: var(--warm); font-style: italic; }
-  .tpl-section { margin-top: 8px; }
-  .tpl-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
-  .tpl-date { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
-  .tpl-notes-text { font-size: 12px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
-  .tpl-todo-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-  .tpl-todo-item { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; }
-  .tpl-todo-item.done { opacity: 0.5; text-decoration: line-through; }
-  .tpl-checkbox { flex-shrink: 0; }
-  .tpl-priority-item { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
-  .tpl-num { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
-  .tpl-schedule-item { font-size: 11px; color: var(--warm); border-left: 2px solid var(--border); padding-left: 6px; margin-bottom: 2px; }
-  .tpl-goals-list { display: flex; flex-direction: column; gap: 6px; }
-  .tpl-goal-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
-  .tpl-goal-num { width: 20px; height: 20px; border-radius: 4px; background: var(--ink); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
-  .tpl-habit-list { display: flex; flex-direction: column; gap: 4px; }
-  .tpl-habit-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-  .tpl-habit-check { font-size: 14px; }
-  .tpl-habit-check.done { color: var(--green); }
-  .tpl-gratitude-list { display: flex; flex-direction: column; gap: 6px; }
-  .tpl-gratitude-item { font-size: 12px; display: flex; align-items: flex-start; gap: 6px; }
-  .tpl-heart { color: #e91e63; }
-  .tpl-mood-text { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-  .tpl-mood-icons { display: flex; gap: 8px; font-size: 20px; }
-  .tpl-water-glasses { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
-  .tpl-glass { font-size: 16px; opacity: 0.3; }
-  .tpl-glass.filled { opacity: 1; }
-  .tpl-water-count { font-size: 12px; color: var(--warm); }
-  .tpl-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 8px 0; }
-  .tpl-week-day { text-align: center; }
-  .tpl-week-day-name { font-size: 9px; color: var(--warm); font-weight: 600; }
-  .tpl-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 8px 0; }
-  .tpl-month-header { font-size: 8px; color: var(--warm); font-weight: 600; text-align: center; padding: 2px; }
-  .tpl-month-day { font-size: 9px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 16px; border-radius: 2px; }
-  .tpl-month-day.marked { background: #ffeb3b; font-weight: 700; color: var(--ink); border-color: #f9a825; }
-  .tpl-lines { display: flex; flex-direction: column; gap: 8px; }
-  .tpl-line { height: 1px; background: var(--border); }
-  .tpl-cover { border-radius: 8px; padding: 20px; color: white; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-  .tpl-cover-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; text-align: center; }
-  .tpl-cover-subtitle { font-size: 11px; opacity: 0.8; margin-top: 4px; }
-  .tpl-cover-date { font-size: 10px; opacity: 0.6; margin-top: 4px; }
-  .tpl-cover-hint { font-size: 11px; opacity: 0.7; margin-top: 8px; }
-  .tpl-item { font-size: 12px; margin-bottom: 3px; }
   .multi-region { display: flex; flex-direction: column; gap: 6px; }
   .region-block { border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: var(--soft); }
   .region-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 4px; }
   .overlay-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(26,21,18,0.95); color: white; padding: 40px; }
-  .overlay-icon { font-size: 64px; }
-  .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
+  .overlay-icon { font-size: 64px; } .overlay-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; }
   .overlay-desc { font-size: 14px; opacity: 0.7; text-align: center; line-height: 1.6; }
-  /* ─── Edit stilleri ─── */
-  .editable-text { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; min-width: 60px; }
-  .editable-text:hover .edit-pencil { opacity: 1; }
-  .edit-pencil { font-size: 10px; opacity: 0; transition: opacity 0.2s; }
-  .editable-placeholder { color: var(--warm); font-style: italic; font-size: 11px; }
-  .editable-active { display: flex; align-items: center; gap: 4px; width: 100%; }
-  .edit-input { flex: 1; padding: 4px 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-family: "DM Sans", sans-serif; font-size: 13px; outline: none; }
-  .edit-textarea { flex: 1; width: 100%; padding: 6px 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-family: "DM Sans", sans-serif; font-size: 12px; outline: none; resize: vertical; }
-  .edit-save-btn { padding: 4px 8px; background: var(--green); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
-  .edit-cancel-btn { padding: 4px 8px; background: #ccc; color: var(--ink); border: none; border-radius: 6px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
-  .edit-region-btn { margin-top: 8px; padding: 4px 10px; background: var(--soft); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; color: var(--warm); cursor: pointer; }
-  .edit-todo-editor { display: flex; flex-direction: column; gap: 6px; }
-  .edit-todo-row { display: flex; align-items: center; gap: 6px; }
-  .edit-delete-btn { padding: 2px 6px; background: #ffebee; border: 1px solid #ffcdd2; border-radius: 4px; color: var(--red); cursor: pointer; font-size: 11px; }
-  .edit-add-btn { padding: 6px 12px; background: var(--soft); border: 1px dashed var(--border); border-radius: 6px; font-size: 12px; color: var(--warm); cursor: pointer; margin-top: 4px; }
-  .edit-actions { display: flex; gap: 8px; margin-top: 8px; }
-
   .btn-overlay-confirm { width: 100%; max-width: 280px; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
   .btn-overlay-cancel { width: 100%; max-width: 280px; padding: 14px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; cursor: pointer; }
   .spinner { width: 40px; height: 40px; margin-top: 16px; border: 3px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .tpl-header { font-weight: 700; font-size: 12px; margin-bottom: 6px; color: var(--ink); border-bottom: 2px solid var(--accent); padding-bottom: 3px; }
+  .tpl-empty-hint { font-size: 10px; color: var(--warm); font-style: italic; }
+  .tpl-section { margin-top: 6px; }
+  .tpl-section-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 3px; }
+  .tpl-date { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .tpl-notes-text { font-size: 11px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
+  .tpl-item { font-size: 10px; margin-bottom: 2px; }
+  .tpl-row { display: flex; gap: 6px; }
+  .tpl-lines { display: flex; flex-direction: column; gap: 8px; }
+  .tpl-line { height: 1px; background: var(--border); }
+  .tpl-priority-item { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 2px; }
+  .tpl-num { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+  .tpl-highlights { font-size: 10px; background: var(--soft); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; color: var(--warm); }
+  .tpl-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 4px 0; }
+  .tpl-month-header { font-size: 8px; color: var(--warm); font-weight: 600; text-align: center; padding: 1px; }
+  .tpl-month-day { font-size: 8px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 14px; border-radius: 2px; }
+  .tpl-month-day.marked { background: #ffeb3b; font-weight: 700; border-color: #f9a825; }
+  .tpl-mood-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 4px 0; }
+  .tpl-mood-cell { font-size: 8px; text-align: center; padding: 2px; border: 1px solid var(--border); min-height: 18px; border-radius: 2px; display: flex; flex-direction: column; align-items: center; }
+  .tpl-mood-day { font-size: 7px; color: var(--warm); } .tpl-mood-emoji { font-size: 9px; }
+  .tpl-bingo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+  .tpl-bingo-cell { border: 1px solid var(--border); border-radius: 4px; padding: 4px; min-height: 24px; font-size: 9px; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .tpl-bingo-cell.checked { background: var(--accent); color: white; }
+  .tpl-vision-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .tpl-vision-box { border: 1.5px solid var(--border); border-radius: 8px; min-height: 36px; padding: 4px; font-size: 9px; display: flex; align-items: center; justify-content: center; }
+  .tpl-onemli-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .tpl-onemli-month { border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .tpl-onemli-month-name { font-size: 8px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+  .tpl-onemli-content { font-size: 8px; color: var(--ink); }
+  .tpl-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+  .tpl-table th { background: var(--soft); font-weight: 700; padding: 3px 4px; border: 1px solid var(--border); }
+  .tpl-table td { padding: 2px 4px; border: 1px solid var(--border); }
+  .tpl-okuma-cols { display: flex; gap: 8px; }
+  .tpl-okuma-col { flex: 1; }
+  .tpl-okuma-item { display: flex; gap: 4px; margin-bottom: 2px; }
+  .tpl-okuma-num { font-size: 9px; font-weight: 700; color: var(--accent); min-width: 16px; }
+  .tpl-okuma-line { font-size: 9px; flex: 1; border-bottom: 1px dashed var(--border); }
+  .tpl-ders-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+  .tpl-ders-day { border: 1px solid var(--border); border-radius: 4px; }
+  .tpl-ders-day-num { font-size: 7px; font-weight: 700; background: var(--soft); padding: 2px; text-align: center; }
+  .tpl-ders-content { font-size: 8px; padding: 2px; min-height: 24px; }
+  .tpl-spor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+  .tpl-spor-cell { border: 1px solid var(--border); border-radius: 4px; }
+  .tpl-spor-num { font-size: 7px; font-weight: 700; background: #c8d8b0; padding: 1px 2px; text-align: center; }
+  .tpl-spor-content { font-size: 8px; padding: 2px; min-height: 20px; }
+  .tpl-sifre-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tpl-sifre-card { border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .tpl-sifre-site { font-size: 9px; font-weight: 700; color: var(--accent); }
+  .tpl-sifre-user, .tpl-sifre-pass { font-size: 8px; color: var(--warm); }
+  .tpl-eg-grid { overflow-x: auto; }
+  .tpl-eg-row { display: flex; align-items: center; }
+  .tpl-eg-header .tpl-eg-month { font-size: 7px; font-weight: 700; color: var(--warm); }
+  .tpl-eg-day { width: 18px; font-size: 7px; color: var(--warm); flex-shrink: 0; }
+  .tpl-eg-month { width: 18px; text-align: center; flex-shrink: 0; }
+  .tpl-eg-cell { width: 18px; height: 10px; border: 1px solid var(--border); flex-shrink: 0; }
+  .tpl-eg-cell.done { background: var(--accent); }
+  .tpl-habit-list { display: flex; flex-direction: column; gap: 4px; }
+  .tpl-habit-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .tpl-habit-check { font-size: 12px; } .tpl-habit-check.done { color: var(--green); }
+  .tpl-habit-days { font-size: 9px; color: var(--warm); }
+  .tpl-habit-dots { display: flex; gap: 2px; margin-left: auto; }
+  .tpl-habit-dot { font-size: 8px; } .tpl-habit-dot.done { color: var(--green); }
+  .tpl-haftalik-days { display: flex; flex-direction: column; gap: 4px; }
+  .tpl-day-block { border-left: 3px solid var(--accent); padding-left: 6px; }
+  .tpl-day-name { font-size: 9px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+  .tpl-day-content { font-size: 10px; color: var(--ink); }
+  .tpl-tekli-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tpl-tekli-box { border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-height: 32px; }
+  .tpl-tekli2-days { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tpl-tekli2-day { border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .tpl-schedule-item { display: flex; gap: 6px; font-size: 10px; border-bottom: 1px solid var(--border); padding: 1px 0; }
+  .tpl-hour { font-weight: 600; color: var(--warm); min-width: 36px; flex-shrink: 0; }
+  .tpl-sukran-list { display: flex; flex-direction: column; gap: 2px; }
+  .tpl-sukran-item { display: flex; gap: 4px; font-size: 10px; border-bottom: 1px solid var(--border); padding: 1px 0; }
+  .tpl-sukran-num { font-weight: 700; color: var(--accent); min-width: 14px; }
+  .tpl-sukran-text { flex: 1; }
+  .tpl-filmserit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+  .tpl-film-frame { border: 2px solid #1a1512; min-height: 24px; font-size: 8px; display: flex; align-items: center; justify-content: center; }
+  .tpl-kitapraf-shelves { display: flex; flex-direction: column; gap: 8px; }
+  .tpl-shelf { display: flex; gap: 2px; border-bottom: 3px solid #5d4037; padding-bottom: 2px; }
+  .tpl-book { width: 18px; min-height: 32px; border: 1px solid var(--border); border-radius: 2px; font-size: 7px; display: flex; align-items: flex-end; justify-content: center; }
+  .tpl-book.filled { background: var(--accent); color: white; }
+  .tpl-yemek-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tpl-yemek-day { border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .tpl-cover { border-radius: 8px; padding: 16px; color: white; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .tpl-cover-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; text-align: center; }
+  .tpl-cover-sub { font-size: 10px; opacity: 0.8; margin-top: 4px; }
+  .tpl-cover-date { font-size: 9px; opacity: 0.6; margin-top: 4px; }
+  .tpl-cover-hint { font-size: 10px; opacity: 0.7; margin-top: 8px; }
+  .tpl-letter-lines { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 `;
 
 const styleEl = document.createElement("style");
