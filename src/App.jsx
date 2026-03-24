@@ -1178,11 +1178,28 @@ export default function App() {
     );
   };
 
-  const renderAllPages = () => {
+const renderAllPages = () => {
+    const template = current?.template || {};
     const filledMap = {};
     pages.forEach(p => { filledMap[p.page_no] = p; });
+
+    // Template varsa tüm sayfaları göster (dolu + boş)
+    if (Object.keys(template).length > 0) {
+        const allPages = Object.entries(template).map(([pageNo, tpl]) => {
+            const no = parseInt(pageNo);
+            const filled = filledMap[no];
+            const tplType = tpl.design_id || tpl.type || "notes";
+            if (filled) return { ...filled, template: tpl };
+            return { page_no: no, template: tpl, template_type: tplType, template_data: null, is_empty: true, image_url: null };
+        });
+        allPages.sort((a, b) => a.page_no - b.page_no);
+        return allPages.map(renderPageCard);
+    }
+
+    // Template yoksa sadece fotoğraflananları göster
     return pages.map(p => renderPageCard(p));
-  };
+};
+
 
   // ─── UI ──────────────────────────────────────────────────────────
 
