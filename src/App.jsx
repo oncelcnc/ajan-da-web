@@ -1293,8 +1293,11 @@ export default function App() {
   if (activePage) {
     const activeRegions = activePage.template?.regions;
     const firstActive = activeRegions?.[0];
-    const tplType = activePage.template_type ||
-      (activePage.template_data?.regions ? "multi" : firstActive?.type || "notes");
+    const tplType = activePage.template_type
+      || activePage.template?.design_id
+      || activePage.template_data?.design_id
+      || firstActive?.type
+      || "notes";
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
@@ -1310,7 +1313,7 @@ export default function App() {
         <div className="detail-template">
           <EditablePageView
             activePage={activePage} tplType={tplType}
-            data={editData || activePage.template_data}
+            data={mapHaftalikData(tplType, editData || activePage.template_data)}
             empty={activePage.is_empty} themeColor={current?.theme_color}
             onSave={handleSaveEdit}
           />
