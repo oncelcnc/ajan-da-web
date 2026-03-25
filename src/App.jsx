@@ -1178,6 +1178,16 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_done"));
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminKey, setAdminKey] = useState("");
+  const [adminData, setAdminData] = useState(null);
+  const [adminTab, setAdminTab] = useState("dashboard");
+  const [friendInviteUrl, setFriendInviteUrl] = useState(null);
+  const [friends, setFriends] = useState([]);
+  const [showFriends, setShowFriends] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -1259,6 +1269,81 @@ export default function App() {
       alert("Bildirim izni alındı!");
     }
   };
+
+  // Admin paneli
+  const loadAdminData = async (key) => {
+    try {
+      const [dash, payments] = await Promise.all([
+        fetch(`${API}/admin/dashboard?admin_key=${key}`).then(r => r.json()),
+        fetch(`${API}/admin/payments?admin_key=${key}`).then(r => r.json()),
+      ]);
+      setAdminData({ dashboard: dash, payments });
+    } catch { alert("Admin erişimi başarısız"); }
+  };
+
+  const approvePayment = async (id) => {
+    await fetch(`${API}/admin/approve_payment/${id}?admin_key=${adminKey}`);
+    loadAdminData(adminKey);
+  };
+
+  const rejectPayment = async (id) => {
+    await fetch(`${API}/admin/reject_payment/${id}?admin_key=${adminKey}`, {method:"POST"});
+    loadAdminData(adminKey);
+  };
+
+  const activatePremiumDirect = async (sno) => {
+    await fetch(`${API}/admin/premium/${sno}?admin_key=${adminKey}`);
+    loadAdminData(adminKey);
+    alert(`${sno} için premium aktive edildi`);
+  };
+
+  // Arkadaş sistemi
+  const createInvite = async () => {
+    if (!current) return;
+    try {
+      const r = await fetch(`${API}/friend/invite/${current.serial_no}?pin=${current.pin}`, {method:"POST"});
+      const d = await r.json();
+      setFriendInviteUrl(d.invite_url);
+    } catch { alert("Davet linki oluşturulamadı"); }
+  };
+
+  const loadFriends = async () => {
+    if (!current) return;
+    try {
+      const r = await fetch(`${API}/friend/list/${current.serial_no}?pin=${current.pin}`);
+      const d = await r.json();
+      setFriends(Array.isArray(d) ? d : []);
+    } catch {}
+  };
+
+  const joinFriend = async () => {
+    if (!inviteCode.trim() || !current) return;
+    try {
+      const r = await fetch(`${API}/friend/join/${inviteCode.trim()}`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({serial_no: current.serial_no, pin: current.pin})
+      });
+      const d = await r.json();
+      if (d.status === "joined") { alert("Arkadaş eklendi!"); setInviteCode(""); loadFriends(); }
+    } catch { alert("Katılım başarısız"); }
+  };
+
+  // Onboarding tamamla
+  const completeOnboarding = () => {
+    localStorage.setItem("onboarding_done", "1");
+    setShowOnboarding(false);
+  };
+
+  // URL'den invite code kontrol et
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inv = params.get("invite");
+    if (inv) {
+      setInviteCode(inv);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   // Havale ödeme
   const [showHavale, setShowHavale] = useState(false);
@@ -1656,6 +1741,146 @@ export default function App() {
   };
 
   // ─── UI ──────────────────────────────────────────────────────────
+
+  // Onboarding
+  if (showOnboarding) {
+    const steps = [
+      { icon: "📒", title: "AJAN-DA'ya Hoş Geldin!", desc: "Fiziksel ajandanı dijitalleştir. Sayfalarını fotoğrafla, notlarına her yerden eriş.", action: "Başla" },
+      { icon: "🔍", title: "Ajandanı Aktive Et", desc: "Ajandanın kapağındaki QR kodu okut. Bu işlemi sadece bir kez yapman yeterli.", action: "Anladım" },
+      { icon: "📸", title: "Sayfa Fotoğrafla", desc: "Her sayfanın köşesinde QR kod var. Sayfayı fotoğrafla, sistem otomatik kaydeder.", action: "Anladım" },
+      { icon: "✨", title: "Dijital Ajandan Hazır!", desc: "Sayfaları ara, AI ile analiz et, arkadaşlarınla paylaş. Hadi başlayalım!", action: "Harika!" },
+    ];
+    const s = steps[onboardingStep];
+    return (
+      <div className="onboarding-screen">
+        <div className="onboarding-dots">
+          {steps.map((_,i) => <div key={i} className={`ob-dot ${i===onboardingStep?"active":""}`} />)}
+        </div>
+        <div className="onboarding-content">
+          <div className="ob-icon">{s.icon}</div>
+          <div className="ob-title">{s.title}</div>
+          <div className="ob-desc">{s.desc}</div>
+        </div>
+        <div className="onboarding-actions">
+          <button className="ob-btn-primary" onClick={() => {
+            if (onboardingStep < steps.length - 1) setOnboardingStep(onboardingStep + 1);
+            else completeOnboarding();
+          }}>{s.action}</button>
+          <button className="ob-btn-skip" onClick={completeOnboarding}>Atla</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin paneli
+  if (showAdmin) {
+    return (
+      <div className="admin-screen">
+        <div className="admin-header">
+          <button className="admin-back" onClick={() => setShowAdmin(false)}>← Geri</button>
+          <div className="admin-title">⚙️ Admin Paneli</div>
+        </div>
+
+        {!adminData ? (
+          <div className="admin-login">
+            <div className="admin-login-icon">🔐</div>
+            <input className="admin-key-input" type="password" placeholder="Admin şifresi"
+              value={adminKey} onChange={e => setAdminKey(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && loadAdminData(adminKey)} />
+            <button className="admin-btn" onClick={() => loadAdminData(adminKey)}>Giriş</button>
+          </div>
+        ) : (
+          <>
+            {/* Admin tabs */}
+            <div className="admin-tabs">
+              {[["dashboard","📊 Özet"],["payments","💳 Ödemeler"],["journals","📖 Ajandalar"]].map(([t,l]) => (
+                <button key={t} className={`admin-tab ${adminTab===t?"active":""}`} onClick={() => setAdminTab(t)}>{l}</button>
+              ))}
+            </div>
+
+            {adminTab === "dashboard" && adminData.dashboard && (
+              <div className="admin-content">
+                <div className="admin-stats">
+                  {[
+                    ["📖", adminData.dashboard.stats?.total_journals, "Ajanda"],
+                    ["⭐", adminData.dashboard.stats?.premium_count, "Premium"],
+                    ["📸", adminData.dashboard.stats?.total_pages, "Sayfa"],
+                    ["📅", adminData.dashboard.stats?.today_pages, "Bugün"],
+                    ["💳", adminData.dashboard.stats?.pending_payments, "Bekleyen"],
+                  ].map(([icon,val,label]) => (
+                    <div key={label} className="admin-stat-card">
+                      <div className="admin-stat-icon">{icon}</div>
+                      <div className="admin-stat-num">{val || 0}</div>
+                      <div className="admin-stat-label">{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="admin-section-title">Son Ajandalar</div>
+                {adminData.dashboard.journals?.map(j => (
+                  <div key={j.serial_no} className="admin-journal-row">
+                    <div className="ajr-info">
+                      <span className="ajr-sno">#{j.serial_no}</span>
+                      <span className="ajr-theme">{j.theme_id}</span>
+                      {j.premium ? <span className="ajr-premium">⭐</span> : null}
+                    </div>
+                    <div className="ajr-meta">
+                      <span>{j.page_count} sayfa</span>
+                      {!j.premium && (
+                        <button className="ajr-btn" onClick={() => activatePremiumDirect(j.serial_no)}>Premium Aktive</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {adminTab === "payments" && (
+              <div className="admin-content">
+                {(!adminData.payments || adminData.payments.length === 0) ? (
+                  <div className="admin-empty">Bekleyen ödeme yok</div>
+                ) : adminData.payments.map(p => (
+                  <div key={p.id} className={`admin-payment-card ${p.status}`}>
+                    <div className="apc-top">
+                      <span className="apc-sno">#{p.serial_no}</span>
+                      <span className="apc-plan">{p.plan === "monthly" ? "Aylık ₺99" : "Yıllık ₺830"}</span>
+                      <span className={`apc-status ${p.status}`}>{p.status === "pending" ? "⏳ Bekliyor" : p.status === "approved" ? "✅ Onaylandı" : "❌ Reddedildi"}</span>
+                    </div>
+                    <div className="apc-name">{p.name}</div>
+                    <div className="apc-date">{p.created_at?.slice(0,16)}</div>
+                    {p.status === "pending" && (
+                      <div className="apc-actions">
+                        <button className="apc-approve" onClick={() => approvePayment(p.id)}>✓ Onayla</button>
+                        <button className="apc-reject" onClick={() => rejectPayment(p.id)}>✕ Reddet</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {adminTab === "journals" && (
+              <div className="admin-content">
+                {adminData.dashboard.journals?.map(j => (
+                  <div key={j.serial_no} className="admin-journal-row">
+                    <div className="ajr-info">
+                      <span className="ajr-sno">#{j.serial_no}</span>
+                      <span className="ajr-theme">{j.theme_id}</span>
+                      {j.premium ? <span className="ajr-premium">⭐</span> : null}
+                    </div>
+                    <div className="ajr-meta">
+                      <span>{j.page_count || 0} sayfa</span>
+                      <a className="ajr-btn" href={`${API}/export/pdf/${j.serial_no}?pin=${j.pin}`} target="_blank">PDF</a>
+                      <a className="ajr-btn" href={`${API}/qr/generate/${j.serial_no}?theme_id=${j.theme_id}&admin_key=${adminKey}`} target="_blank">QR</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
 
   // Havale modal
   if (showHavale) {
@@ -2055,10 +2280,11 @@ export default function App() {
         {/* Bottom nav */}
         <div className="bottom-nav">
           {[
-            {id:"pages", icon:"📖", label:"Sayfalar"},
-            {id:"stats", icon:"📊", label:"İstatistik"},
-            {id:"chat",  icon:"🤖", label:"AI"},
-            {id:"settings", icon:"⚙️", label:"Ayarlar"},
+            {id:"pages",   icon:"📖", label:"Sayfalar"},
+            {id:"stats",   icon:"📊", label:"İstatistik"},
+            {id:"chat",    icon:"🤖", label:"AI"},
+            {id:"friends", icon:"👥", label:"Arkadaş"},
+            {id:"settings",icon:"⚙️", label:"Ayarlar"},
           ].map(t => (
             <button key={t.id} className={`bnav-btn ${activeTab===t.id?"active":""}`}
               onClick={() => setActiveTab(t.id)}>
@@ -2197,6 +2423,58 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === "friends" && (
+          <div className="tab-panel">
+            <div className="friends-header">
+              <div className="friends-title">👥 Arkadaşlar</div>
+              <button className="friends-invite-btn" onClick={() => { createInvite(); loadFriends(); }}>
+                + Davet Et
+              </button>
+            </div>
+
+            {friendInviteUrl && (
+              <div className="invite-card">
+                <div className="invite-label">Davet Linki</div>
+                <div className="invite-url">{friendInviteUrl}</div>
+                <button className="invite-copy" onClick={() => { navigator.clipboard.writeText(friendInviteUrl); alert("Kopyalandı!"); }}>
+                  📋 Kopyala
+                </button>
+              </div>
+            )}
+
+            <div className="join-card">
+              <div className="join-label">Davet Koduna Katıl</div>
+              <div className="join-row">
+                <input className="join-input" placeholder="Davet kodu gir..."
+                  value={inviteCode} onChange={e => setInviteCode(e.target.value)} />
+                <button className="join-btn" onClick={joinFriend}>Katıl</button>
+              </div>
+            </div>
+
+            <div className="friends-section-title">Arkadaşlarım</div>
+            {friends.length === 0 ? (
+              <div className="friends-empty">
+                <div style={{fontSize:36}}>👥</div>
+                <div>Henüz arkadaş yok</div>
+                <div style={{fontSize:12, color:"var(--warm)"}}>Davet linki oluştur ve paylaş</div>
+              </div>
+            ) : friends.map(f => (
+              <div key={f.friend_serial_no} className="friend-card">
+                <div className="fc-avatar">📓</div>
+                <div className="fc-info">
+                  <div className="fc-sno">#{f.friend_serial_no}</div>
+                  <div className="fc-meta">{f.theme_id} • {f.page_count} sayfa</div>
+                </div>
+                <button className="fc-view" onClick={async () => {
+                  const r = await fetch(`${API}/friend/pages/${f.friend_serial_no}?serial_no=${current.serial_no}&pin=${current.pin}`);
+                  const d = await r.json();
+                  alert(`${f.friend_serial_no} — ${d.pages?.length || 0} fotoğraflanan sayfa`);
+                }}>Gör</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {activeTab === "settings" && (
           <div className="tab-panel settings-panel">
 
@@ -2307,45 +2585,80 @@ export default function App() {
   }
 
   return (
-    <div className="home-shelf">
-      {/* Raf üstü */}
-      <div className="shelf-header">
-        <div className="shelf-logo">AJAN<span>-DA</span></div>
-        <div className="shelf-tagline">dijital ajanda sistemi</div>
-      </div>
+    <div className="landing-home">
+      {/* Hero */}
+      <div className="lh-hero">
+        <div className="lh-hero-bg" />
+        <div className="lh-hero-texture" />
+        <div className="lh-hero-content">
+          <div className="lh-badge">✦ Dijital Ajanda Sistemi</div>
+          <div className="lh-logo">AJAN<span>-DA</span></div>
+          <div className="lh-tagline">Fiziksel ajandanı dijitalleştir</div>
+          <p className="lh-desc">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş.</p>
 
-      {/* Ajanda rafı */}
-      <div className="shelf-rack">
-        <div className="shelf-wood" />
-        {journals.length === 0 ? (
-          <div className="shelf-empty">Henüz ajanda yok</div>
-        ) : (
-          journals.map((j, i) => (
-            <button
-              key={j.serial_no}
-              className="shelf-book"
-              onClick={() => handleLogin(j)}
-              style={{ "--bc": j.theme_color || "#8b2500", "--delay": `${i * 0.08}s` }}
-            >
-              <div className="shelf-book-spine">
-                <div className="shelf-book-texture" />
-                <div className="shelf-book-title">{j.theme_name}</div>
-                <div className="shelf-book-serial">{j.serial_no}</div>
+          {/* Kayıtlı ajandalar */}
+          {journals.length > 0 && (
+            <div className="lh-journals">
+              <div className="lh-journals-label">Ajandalarım</div>
+              <div className="lh-journals-list">
+                {journals.map((j, i) => (
+                  <button key={j.serial_no} className="lh-journal-btn"
+                    style={{"--bc": j.theme_color || "#8b2500", "--delay": `${i*0.06}s`}}
+                    onClick={() => handleLogin(j)}>
+                    <div className="lhj-color" style={{background: j.theme_color}} />
+                    <div className="lhj-info">
+                      <div className="lhj-name">{j.theme_name}</div>
+                      <div className="lhj-serial">№ {j.serial_no}</div>
+                    </div>
+                    <div className="lhj-arrow">→</div>
+                  </button>
+                ))}
               </div>
-            </button>
-          ))
-        )}
-        {/* Yeni ajanda ekle butonu — kitap gibi */}
-        <button className="shelf-book shelf-book-new" onClick={() => setStep("activate")}>
-          <div className="shelf-book-spine">
-            <div className="shelf-book-plus">+</div>
-            <div className="shelf-book-title">Yeni</div>
+            </div>
+          )}
+
+          <button className="lh-cta" onClick={() => setStep("activate")}>
+            <span>📷</span>
+            <span>{journals.length > 0 ? "Yeni Ajanda Ekle" : "Ajandanı Aktive Et"}</span>
+          </button>
+
+          {error && <div className="error-msg" style={{marginTop:12}}>{error}</div>}
+          {loading && <div className="lh-loading">⏳</div>}
+        </div>
+
+        {/* Sağda ajanda mockup */}
+        <div className="lh-mockup">
+          <div className="lh-book">
+            <div className="lh-book-spine" />
+            <div className="lh-book-cover">
+              <div className="lh-book-logo">AJAN-DA</div>
+              <div className="lh-book-lines">
+                {Array.from({length:12}).map((_,i) => <div key={i} className="lh-book-line" />)}
+              </div>
+              <div className="lh-book-qr">📱</div>
+              <div className="lh-book-pulse" />
+            </div>
           </div>
-        </button>
+        </div>
       </div>
 
-      {error && <div className="error-msg" style={{margin:"16px"}}>{error}</div>}
-      {loading && <div className="shelf-loading">Yükleniyor...</div>}
+      {/* Özellikler şeridi */}
+      <div className="lh-features">
+        {[
+          {icon:"📸", text:"Fotoğrafla Kaydet"},
+          {icon:"🤖", text:"AI Analiz"},
+          {icon:"🔍", text:"Metin Ara"},
+          {icon:"📊", text:"İstatistikler"},
+          {icon:"👥", text:"Arkadaşlarla Paylaş"},
+        ].map(f => (
+          <div key={f.text} className="lh-feature-chip">
+            <span>{f.icon}</span>
+            <span>{f.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <button className="admin-access-btn" onClick={() => setShowAdmin(true)}>⚙️</button>
     </div>
   );
 }
@@ -2376,6 +2689,227 @@ const styles = `
     color: var(--ink);
     min-height: 100vh;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23e8e0d0' opacity='0.4'/%3E%3C/svg%3E");
+  }
+
+  /* ─── LANDING HOME ──────────────────────────────────── */
+  .landing-home {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1c1410;
+    position: relative;
+  }
+
+  .lh-hero {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 60px 24px 32px;
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .lh-hero-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #1c1410 0%, #3d2010 50%, #1c1410 100%);
+  }
+  .lh-hero-texture {
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cline x1='0' y1='3' x2='6' y2='3' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3Cline x1='3' y1='0' x2='3' y2='6' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .lh-hero-content {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    gap: 14px;
+    max-width: 300px;
+    flex: 1;
+  }
+
+  .lh-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(196,149,106,0.15);
+    border: 1px solid rgba(196,149,106,0.3);
+    border-radius: 20px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    align-self: flex-start;
+  }
+
+  .lh-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 52px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 4px;
+    line-height: 1;
+  }
+  .lh-logo span { color: var(--accent); }
+
+  .lh-tagline {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    margin-top: -8px;
+  }
+
+  .lh-desc {
+    font-size: 13px;
+    line-height: 1.8;
+    color: rgba(255,255,255,0.45);
+    max-width: 260px;
+  }
+
+  .lh-journals { display: flex; flex-direction: column; gap: 6px; }
+  .lh-journals-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+  }
+  .lh-journals-list { display: flex; flex-direction: column; gap: 6px; }
+  .lh-journal-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    text-align: left;
+    transition: all 0.2s;
+    animation: fadeIn 0.3s ease var(--delay, 0s) both;
+  }
+  .lh-journal-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--accent);
+    transform: translateX(3px);
+  }
+  .lhj-color {
+    width: 8px; height: 32px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .lhj-info { flex: 1; }
+  .lhj-name { font-size: 13px; font-weight: 500; color: white; }
+  .lhj-serial { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .lhj-arrow { color: rgba(255,255,255,0.3); font-size: 14px; }
+
+  .lh-cta {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 16px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Jost', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    align-self: stretch;
+  }
+  .lh-cta:hover { background: white; color: var(--ink); }
+  .lh-loading { color: rgba(255,255,255,0.4); font-size: 20px; text-align: center; }
+
+  /* Ajanda mockup */
+  .lh-mockup {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    padding-left: 20px;
+  }
+  .lh-book {
+    width: 120px;
+    height: 180px;
+    position: relative;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5));
+  }
+  .lh-book-spine {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 14px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 3px 0 0 3px;
+  }
+  .lh-book-cover {
+    position: absolute;
+    left: 14px; top: 0; right: 0; bottom: 0;
+    background: var(--red);
+    border-radius: 0 6px 6px 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 10px 10px;
+    gap: 6px;
+  }
+  .lh-book-cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cline x1='0' y1='2' x2='4' y2='2' stroke='%23fff' stroke-width='0.5' opacity='0.08'/%3E%3Cline x1='2' y1='0' x2='2' y2='4' stroke='%23fff' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E");
+  }
+  .lh-book-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    letter-spacing: 2px;
+    position: relative; z-index: 1;
+  }
+  .lh-book-lines {
+    display: flex; flex-direction: column; gap: 5px;
+    flex: 1;
+    position: relative; z-index: 1;
+  }
+  .lh-book-line { height: 1px; background: rgba(255,255,255,0.12); }
+  .lh-book-qr {
+    position: absolute;
+    bottom: 10px; right: 10px;
+    width: 28px; height: 28px;
+    background: white;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    z-index: 2;
+  }
+  .lh-book-pulse {
+    position: absolute;
+    bottom: 6px; right: 6px;
+    width: 36px; height: 36px;
+    border-radius: 5px;
+    border: 2px solid var(--accent);
+    animation: scanPulse 2s ease-in-out infinite;
+    z-index: 3;
+  }
+  @keyframes scanPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.15);opacity:0.4} }
+
+  /* Özellikler şeridi */
+  .lh-features {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.3);
+    overflow-x: auto;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .lh-features::-webkit-scrollbar { display: none; }
+  .lh-feature-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    white-space: nowrap;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    flex-shrink: 0;
   }
 
   /* ─── HOME SHELF ─────────────────────────────────── */
@@ -3713,6 +4247,141 @@ const styles = `
   }
   .havale-btn:hover:not(:disabled) { background: var(--accent); }
   .havale-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  /* ─── ONBOARDING ────────────────────────────────── */
+  .onboarding-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(160deg, #1c1410 0%, #3d2010 50%, #1c1410 100%);
+    color: white;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .onboarding-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cline x1='0' y1='3' x2='6' y2='3' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3Cline x1='3' y1='0' x2='3' y2='6' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .onboarding-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 60px 0 0;
+    position: relative;
+    z-index: 1;
+  }
+  .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.3s; }
+  .ob-dot.active { background: var(--accent); width: 24px; border-radius: 4px; }
+  .onboarding-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .ob-icon { font-size: 72px; margin-bottom: 24px; animation: obFloat 3s ease-in-out infinite; }
+  @keyframes obFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .ob-title { font-family: "Cormorant Garamond", serif; font-size: 28px; font-weight: 600; margin-bottom: 16px; color: white; }
+  .ob-desc { font-size: 15px; line-height: 1.8; color: rgba(255,255,255,0.6); max-width: 280px; }
+  .onboarding-actions {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+  }
+  .ob-btn-primary { padding: 16px; background: var(--accent); color: white; border: none; border-radius: 12px; font-family: "Jost", sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+  .ob-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .ob-btn-skip { padding: 12px; background: none; border: none; color: rgba(255,255,255,0.3); font-family: "Jost", sans-serif; font-size: 13px; cursor: pointer; }
+
+  /* ─── ADMIN PANELİ ───────────────────────────────── */
+  .admin-access-btn {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.12);
+    border: 1px solid var(--border);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--warm);
+    transition: all 0.2s;
+  }
+  .admin-access-btn:hover { background: var(--ink); color: white; }
+  .admin-screen { min-height: 100vh; background: #0f0c0a; color: white; display: flex; flex-direction: column; }
+  .admin-header { display: flex; align-items: center; gap: 12px; padding: 16px; background: #1a1512; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .admin-back { background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-family: "Jost", sans-serif; font-size: 13px; }
+  .admin-title { font-family: "Cormorant Garamond", serif; font-size: 20px; font-weight: 600; color: var(--accent); }
+  .admin-login { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 60px 32px; }
+  .admin-login-icon { font-size: 48px; }
+  .admin-key-input { width: 100%; max-width: 280px; padding: 12px 16px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: white; font-family: "Jost", sans-serif; font-size: 16px; text-align: center; letter-spacing: 4px; outline: none; }
+  .admin-btn { padding: 12px 32px; background: var(--accent); color: white; border: none; border-radius: 8px; font-family: "Jost", sans-serif; font-size: 15px; cursor: pointer; }
+  .admin-tabs { display: flex; background: #1a1512; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .admin-tab { flex: 1; padding: 12px 8px; background: none; border: none; color: rgba(255,255,255,0.4); font-family: "Jost", sans-serif; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .admin-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .admin-content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .admin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .admin-stat-card { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 8px; text-align: center; }
+  .admin-stat-icon { font-size: 18px; margin-bottom: 4px; }
+  .admin-stat-num { font-family: "Cormorant Garamond", serif; font-size: 24px; font-weight: 600; color: var(--accent); }
+  .admin-stat-label { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .admin-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.3); margin: 8px 0 4px; }
+  .admin-journal-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .ajr-info { display: flex; align-items: center; gap: 8px; }
+  .ajr-sno { font-size: 13px; font-weight: 600; color: white; font-variant-numeric: tabular-nums; }
+  .ajr-theme { font-size: 11px; color: rgba(255,255,255,0.4); }
+  .ajr-premium { font-size: 12px; }
+  .ajr-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.4); }
+  .ajr-btn { padding: 4px 8px; background: rgba(196,149,106,0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); font-size: 10px; cursor: pointer; font-family: "Jost", sans-serif; text-decoration: none; }
+  .admin-payment-card { padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+  .admin-payment-card.approved { border-color: rgba(46,204,113,0.3); }
+  .admin-payment-card.rejected { border-color: rgba(231,76,60,0.3); opacity: 0.6; }
+  .apc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .apc-sno { font-size: 13px; font-weight: 600; color: white; }
+  .apc-plan { font-size: 11px; color: var(--accent); }
+  .apc-status { font-size: 11px; margin-left: auto; }
+  .apc-name { font-size: 12px; color: rgba(255,255,255,0.6); }
+  .apc-date { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+  .apc-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .apc-approve { flex: 1; padding: 8px; background: rgba(46,204,113,0.2); border: 1px solid #2ecc71; color: #2ecc71; border-radius: 6px; font-family: "Jost", sans-serif; font-size: 13px; cursor: pointer; }
+  .apc-reject { flex: 1; padding: 8px; background: rgba(231,76,60,0.2); border: 1px solid #e74c3c; color: #e74c3c; border-radius: 6px; font-family: "Jost", sans-serif; font-size: 13px; cursor: pointer; }
+  .admin-empty { color: rgba(255,255,255,0.3); text-align: center; padding: 32px; font-size: 14px; }
+
+  /* ─── ARKADAŞ SİSTEMİ ────────────────────────────── */
+  .friends-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .friends-title { font-family: "Cormorant Garamond", serif; font-size: 20px; font-weight: 600; }
+  .friends-invite-btn { padding: 8px 14px; background: var(--tc, #8b2500); color: white; border: none; border-radius: 20px; font-family: "Jost", sans-serif; font-size: 12px; cursor: pointer; }
+  .invite-card { background: white; border-radius: 8px; border: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  body.dark .invite-card { background: var(--soft); }
+  .invite-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); }
+  .invite-url { font-size: 11px; color: var(--ink); background: var(--soft); padding: 6px 8px; border-radius: 4px; word-break: break-all; }
+  .invite-copy { padding: 6px 12px; background: var(--ink); color: white; border: none; border-radius: 4px; font-family: "Jost", sans-serif; font-size: 12px; cursor: pointer; align-self: flex-start; }
+  .join-card { background: white; border-radius: 8px; border: 1px solid var(--border); padding: 12px; }
+  body.dark .join-card { background: var(--soft); }
+  .join-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin-bottom: 8px; }
+  .join-row { display: flex; gap: 8px; }
+  .join-input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: "Jost", sans-serif; font-size: 13px; outline: none; }
+  .join-input:focus { border-color: var(--accent); }
+  .join-btn { padding: 8px 16px; background: var(--tc, #8b2500); color: white; border: none; border-radius: 6px; font-family: "Jost", sans-serif; font-size: 13px; cursor: pointer; }
+  .friends-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm); margin: 12px 0 6px; }
+  .friends-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px; color: var(--warm); text-align: center; font-size: 13px; }
+  .friend-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 8px; border: 1px solid var(--border); }
+  body.dark .friend-card { background: var(--soft); }
+  .fc-avatar { font-size: 28px; }
+  .fc-info { flex: 1; }
+  .fc-sno { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .fc-meta { font-size: 11px; color: var(--warm); margin-top: 2px; }
+  .fc-view { padding: 6px 12px; background: var(--soft); border: 1px solid var(--border); border-radius: 6px; font-family: "Jost", sans-serif; font-size: 12px; cursor: pointer; color: var(--ink); }
+
   .havale-cancel {
     width: 100%;
     padding: 10px;
