@@ -1165,6 +1165,7 @@ export default function App() {
   const [filterMode, setFilterMode] = useState("all"); // all | filled | empty | bookmarked
   const [flipDir, setFlipDir] = useState(null); // "left" | "right"
   const [isFlipping, setIsFlipping] = useState(false);
+  const touchStartX = useRef(0);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -1480,7 +1481,6 @@ export default function App() {
     const curIdx = allPagesForDetail.findIndex(p => p.page_no === activePage.page_no);
 
     // Swipe desteği
-    const touchStartX = useRef(0);
     const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
     const handleTouchEnd = (e) => {
       const dx = e.changedTouches[0].clientX - touchStartX.current;
