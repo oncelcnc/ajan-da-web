@@ -584,27 +584,30 @@ function TemplateHaftalikDikey({ data, empty }) {
     {key:"saturday", short:"CMT", weekend:true},
     {key:"sunday",   short:"PAZ", weekend:true},
   ];
+  const hours = ["7:00","9:00","11:00","13:00","15:00"];
   const getItems = (val) => {
     if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (typeof val === "string") return val.split("\n").filter(Boolean);
+    if (Array.isArray(val)) return val.filter(Boolean);
+    if (typeof val === "string" && val.trim()) return [val];
     return [];
   };
   return (
-    <div className="tpl-haftalik-dikey">
-      <TplHeader icon="📅" title="Haftalık Plan" />
-      {data?.week && <div className="tpl-date">{data.week}</div>}
-      <div className="tpl-hd-grid">
+    <div className="tpl-hw">
+      <div className="tpl-hw-title">
+        {data?.week ? `HAFTALIK PLAN — ${data.week}` : "HAFTALIK PLAN"}
+      </div>
+      <div className="tpl-hw-grid">
         {days.map(d => (
-          <div key={d.key} className="tpl-hd-col">
-            <div className={`tpl-hd-header ${d.weekend ? "weekend" : ""}`}>{d.short}</div>
-            <div className="tpl-hd-body">
-              {empty ? null : getItems(data?.[d.key]).map((item, i) => (
-                <div key={i} className="tpl-hd-item">{item}</div>
-              ))}
-            </div>
-          </div>
+          <div key={d.key} className={`tpl-hw-head ${d.weekend?"wknd":""}`}>{d.short}</div>
         ))}
+        {hours.map((h, hi) => days.map(d => (
+          <div key={d.key+h} className="tpl-hw-cell">
+            <span className="tpl-hw-hour">{h}</span>
+            {!empty && hi===0 && getItems(data?.[d.key]).map((item,i) => (
+              <div key={i} className="tpl-hw-entry">{item}</div>
+            ))}
+          </div>
+        )))}
       </div>
     </div>
   );
