@@ -1226,8 +1226,7 @@ export default function App() {
       // Sayfa içeriklerini context olarak ver
       const pagesContext = pages.slice(0, 20).map(p =>
         `Sayfa ${p.page_no} (${p.template?.title || p.template_type}): ${p.ocr_text || "boş"}`
-      ).join("
-");
+      ).join("");
 
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
