@@ -627,8 +627,7 @@ function TemplateHaftalikTekli1({ data, empty }) {
   const getItems = (val) => {
     if (!val) return [];
     if (Array.isArray(val)) return val.filter(Boolean);
-    if (typeof val === "string" && val.trim()) return val.split(/[
-,]+/).filter(Boolean);
+    if (typeof val === "string" && val.trim()) return val.split(/[\n,]+/).filter(Boolean);
     return [];
   };
   return (
