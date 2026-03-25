@@ -1164,6 +1164,14 @@ export default function App() {
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
   const [filterMode, setFilterMode] = useState("all"); // all | filled | empty | bookmarked
   const [flipDir, setFlipDir] = useState(null); // "left" | "right"
+  const [authMode, setAuthMode] = useState("landing"); // landing | login | register
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regSerialNo, setRegSerialNo] = useState("");
+  const [regTheme, setRegTheme] = useState("FERDI");
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loggedUsername, setLoggedUsername] = useState(() => localStorage.getItem("ajan_username") || "");
   const [isFlipping, setIsFlipping] = useState(false);
   const touchStartX = useRef(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "1");
@@ -1270,6 +1278,78 @@ export default function App() {
     }
   };
 
+  // Kullanıcı adı/şifre ile kayıt
+  const handleRegister = async () => {
+    if (!regUsername || !regPassword || !regSerialNo) {
+      setError("Tüm alanları doldurun"); return;
+    }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${API}/user/register`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          username: regUsername,
+          password: regPassword,
+          serial_no: regSerialNo,
+          theme_id: regTheme,
+          pin: regPassword.slice(0,6)
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.detail || "Kayıt hatası"); setLoading(false); return; }
+      localStorage.setItem("ajan_username", regUsername);
+      setLoggedUsername(regUsername);
+      const journal = {
+        serial_no: d.serial_no, theme_id: d.theme_id,
+        theme_name: d.theme_name, theme_color: d.theme_color,
+        pin: regPassword.slice(0,6), template: d.template,
+        username: regUsername
+      };
+      const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
+      saveJournals(updated);
+      setCurrent(journal);
+      await loadPages(journal);
+      loadStreak(journal.serial_no);
+      setStep("dashboard");
+      setAuthMode("landing");
+    } catch { setError("Bağlantı hatası"); }
+    setLoading(false);
+  };
+
+  // Kullanıcı adı/şifre ile giriş
+  const handleUserLogin = async () => {
+    if (!loginUsername || !loginPassword) {
+      setError("Kullanıcı adı ve şifre girin"); return;
+    }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${API}/user/login`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username: loginUsername, password: loginPassword })
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.detail || "Giriş hatası"); setLoading(false); return; }
+      localStorage.setItem("ajan_username", loginUsername);
+      setLoggedUsername(loginUsername);
+      const journal = {
+        serial_no: d.serial_no, theme_id: d.theme_id,
+        theme_name: d.theme_name, theme_color: d.theme_color,
+        pin: d.pin, template: d.template, username: loginUsername
+      };
+      const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
+      saveJournals(updated);
+      setCurrent(journal);
+      await loadPages(journal);
+      loadStreak(journal.serial_no);
+      loadPremiumStatus(journal.serial_no);
+      setStep("dashboard");
+      setAuthMode("landing");
+    } catch { setError("Bağlantı hatası"); }
+    setLoading(false);
+  };
+
   // Admin paneli
   const loadAdminData = async (key) => {
     try {
@@ -1327,6 +1407,18 @@ export default function App() {
       const d = await r.json();
       if (d.status === "joined") { alert("Arkadaş eklendi!"); setInviteCode(""); loadFriends(); }
     } catch { alert("Katılım başarısız"); }
+  };
+
+  // Arkadaş çıkar
+  const removeFriend = async (friendSno) => {
+    if (!current) return;
+    if (!window.confirm(`${friendSno} arkadaşlıktan çıkarılsın mı?`)) return;
+    try {
+      await fetch(`${API}/friend/remove/${current.serial_no}/${friendSno}?pin=${current.pin}`, {
+        method: "DELETE"
+      });
+      loadFriends();
+    } catch { alert("Hata oluştu"); }
   };
 
   // Onboarding tamamla
@@ -1741,6 +1833,111 @@ export default function App() {
   };
 
   // ─── UI ──────────────────────────────────────────────────────────
+
+  // Auth ekranları
+  if (authMode === "register") {
+    return (
+      <div className="auth-screen">
+        <div className="auth-header">
+          <button className="auth-back" onClick={() => { setAuthMode("landing"); setError(""); }}>← Geri</button>
+          <div className="auth-logo">AJAN<span>-DA</span></div>
+        </div>
+        <div className="auth-body">
+          <div className="auth-title">Yeni Ajanda Tanımla</div>
+          <div className="auth-subtitle">Ajandanı sisteme ekle ve kullanıcı hesabı oluştur</div>
+
+          <div className="auth-field">
+            <label>Kullanıcı Adı</label>
+            <input className="auth-input" placeholder="örn: ahmet_ajanda"
+              value={regUsername} onChange={e => setRegUsername(e.target.value.toLowerCase())} />
+          </div>
+          <div className="auth-field">
+            <label>Şifre</label>
+            <input className="auth-input" type="password" placeholder="En az 4 karakter"
+              value={regPassword} onChange={e => setRegPassword(e.target.value)} />
+          </div>
+          <div className="auth-field">
+            <label>Ajanda Seri No</label>
+            <input className="auth-input" placeholder="Kapak QR'ından okutun veya yazın"
+              value={regSerialNo} onChange={e => setRegSerialNo(e.target.value)} />
+            <div className="auth-hint">Kapak QR'ını okutmak için:
+              <button className="auth-qr-btn" onClick={async () => {
+                if (isNative) {
+                  const qr = await scanQR();
+                  if (qr) {
+                    const m = qr.match(/AJANDA-(\w+)-SN(\w+)/i);
+                    if (m) { setRegTheme(m[1]); setRegSerialNo(m[2]); }
+                    else setRegSerialNo(qr);
+                  }
+                } else {
+                  const blob = await takePhoto();
+                  if (blob) {
+                    const form = new FormData();
+                    form.append("file", blob, "cover.jpg");
+                    const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
+                    const d = await res.json();
+                    if (d.serial_no) { setRegSerialNo(d.serial_no); setRegTheme(d.theme_id || "FERDI"); }
+                  }
+                }
+              }}>📷 QR Okut</button>
+            </div>
+          </div>
+          <div className="auth-field">
+            <label>Tema</label>
+            <select className="auth-input" value={regTheme} onChange={e => setRegTheme(e.target.value)}>
+              {["FERDI","MANIFEST","GUNLUK","TAKIP","MINI","CICIKUS","NOKTA"].map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          {error && <div className="error-msg">{error}</div>}
+          <button className="auth-btn" onClick={handleRegister} disabled={loading}>
+            {loading ? "⏳ Kaydediliyor..." : "Ajandamı Oluştur →"}
+          </button>
+          <button className="auth-switch" onClick={() => { setAuthMode("login"); setError(""); }}>
+            Zaten hesabın var mı? Giriş yap
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMode === "login") {
+    return (
+      <div className="auth-screen">
+        <div className="auth-header">
+          <button className="auth-back" onClick={() => { setAuthMode("landing"); setError(""); }}>← Geri</button>
+          <div className="auth-logo">AJAN<span>-DA</span></div>
+        </div>
+        <div className="auth-body">
+          <div className="auth-title">Giriş Yap</div>
+          <div className="auth-subtitle">Kullanıcı adın ve şifrenle giriş yap</div>
+
+          <div className="auth-field">
+            <label>Kullanıcı Adı</label>
+            <input className="auth-input" placeholder="Kullanıcı adın"
+              value={loginUsername} onChange={e => setLoginUsername(e.target.value.toLowerCase())}
+              onKeyDown={e => e.key === "Enter" && handleUserLogin()} />
+          </div>
+          <div className="auth-field">
+            <label>Şifre</label>
+            <input className="auth-input" type="password" placeholder="Şifren"
+              value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleUserLogin()} />
+          </div>
+
+          {error && <div className="error-msg">{error}</div>}
+          <button className="auth-btn" onClick={handleUserLogin} disabled={loading}>
+            {loading ? "⏳ Giriş yapılıyor..." : "Giriş Yap →"}
+          </button>
+          <button className="auth-switch" onClick={() => { setAuthMode("register"); setError(""); }}>
+            Yeni ajanda tanımlamak ister misin?
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Onboarding
   if (showOnboarding) {
@@ -2607,8 +2804,12 @@ export default function App() {
           <h1 className="al-h1">Fiziksel ajandanı<br/><span>dijitalleştir</span></h1>
           <p className="al-p">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et.</p>
           <div className="al-btns">
-            <button className="al-btn-primary" onClick={() => setStep("activate")}>Ücretsiz Başla →</button>
-            <a className="al-btn-secondary" href="#nasil-calisir">Nasıl Çalışır?</a>
+            <button className="al-btn-primary" onClick={() => setAuthMode("register")}>
+              📒 Yeni Ajanda Tanımla
+            </button>
+            <button className="al-btn-secondary" onClick={() => setAuthMode("login")}>
+              Giriş Yap →
+            </button>
           </div>
           {journals.length > 0 && (
             <div className="al-saved">
@@ -2616,7 +2817,7 @@ export default function App() {
               {journals.map(j => (
                 <button key={j.serial_no} className="al-saved-item" onClick={() => handleLogin(j)}>
                   <span className="al-saved-dot" style={{background: j.theme_color}} />
-                  <span>{j.theme_name} · №{j.serial_no}</span>
+                  <span>{j.username || j.theme_name} · №{j.serial_no}</span>
                   <span>→</span>
                 </button>
               ))}
@@ -4628,6 +4829,81 @@ const styles = `
   .fc-sno { font-size: 14px; font-weight: 600; color: var(--ink); }
   .fc-meta { font-size: 11px; color: var(--warm); margin-top: 2px; }
   .fc-view { padding: 6px 12px; background: var(--soft); border: 1px solid var(--border); border-radius: 6px; font-family: "Jost", sans-serif; font-size: 12px; cursor: pointer; color: var(--ink); }
+  .fc-remove { padding: 6px 10px; background: none; border: 1px solid #ffcdd2; border-radius: 6px; font-size: 12px; cursor: pointer; color: #e74c3c; margin-left: 4px; }
+
+  /* ─── AUTH SCREENS ───────────────────────────────── */
+  .auth-screen {
+    min-height: 100vh;
+    background: #1c1410;
+    display: flex;
+    flex-direction: column;
+  }
+  .auth-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .auth-back {
+    background: rgba(255,255,255,0.08);
+    border: none; color: rgba(255,255,255,0.6);
+    border-radius: 6px; padding: 6px 12px;
+    font-family: "Jost",sans-serif; font-size: 13px; cursor: pointer;
+  }
+  .auth-logo {
+    font-family: "Cormorant Garamond",serif;
+    font-size: 22px; font-weight: 600;
+    color: #c4956a; letter-spacing: 3px;
+  }
+  .auth-logo span { color: white; opacity: 0.4; }
+  .auth-body {
+    flex: 1;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .auth-title {
+    font-family: "Cormorant Garamond",serif;
+    font-size: 28px; font-weight: 600; color: white;
+  }
+  .auth-subtitle { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; margin-top: -8px; }
+  .auth-field { display: flex; flex-direction: column; gap: 6px; }
+  .auth-field label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.5px; text-transform: uppercase; }
+  .auth-input {
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    color: white;
+    font-family: "Jost",sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .auth-input:focus { border-color: #c4956a; background: rgba(255,255,255,0.09); }
+  .auth-input option { background: #1c1410; }
+  .auth-hint { font-size: 11px; color: rgba(255,255,255,0.3); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .auth-qr-btn { padding: 4px 10px; background: rgba(196,149,106,0.2); border: 1px solid rgba(196,149,106,0.4); border-radius: 4px; color: #c4956a; font-family: "Jost",sans-serif; font-size: 11px; cursor: pointer; }
+  .auth-btn {
+    padding: 14px;
+    background: #c4956a;
+    color: white; border: none;
+    border-radius: 6px;
+    font-family: "Jost",sans-serif;
+    font-size: 15px; font-weight: 500;
+    cursor: pointer; letter-spacing: 0.5px;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .auth-btn:hover:not(:disabled) { background: white; color: #1c1410; }
+  .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-switch { background: none; border: none; color: rgba(255,255,255,0.3); font-family: "Jost",sans-serif; font-size: 12px; cursor: pointer; text-align: center; padding: 8px; }
+  .auth-switch:hover { color: rgba(255,255,255,0.6); }
 
   .havale-cancel {
     width: 100%;
