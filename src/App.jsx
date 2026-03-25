@@ -1155,9 +1155,40 @@ export default function App() {
   const [activePage, setActivePage] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
   const [editData, setEditData] = useState(null);
+  const [bookmarks, setBookmarks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ajanda_bookmarks") || "{}"); } catch { return {}; }
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentPageIdx, setCurrentPageIdx] = useState(0);
+  const [filterMode, setFilterMode] = useState("all"); // all | filled | empty | bookmarked
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
+
+  // Arama fonksiyonu
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchResults([]); return; }
+    const q = searchQuery.toLowerCase();
+    const results = pages.filter(p => {
+      const ocr = (p.ocr_text || "").toLowerCase();
+      const title = (p.template?.title || "").toLowerCase();
+      return ocr.includes(q) || title.includes(q);
+    });
+    setSearchResults(results);
+  }, [searchQuery, pages]);
+
+  const toggleBookmark = (pageNo) => {
+    const key = `${current?.serial_no}_${pageNo}`;
+    const updated = { ...bookmarks };
+    if (updated[key]) delete updated[key];
+    else updated[key] = true;
+    setBookmarks(updated);
+    localStorage.setItem("ajanda_bookmarks", JSON.stringify(updated));
+  };
+
+  const isBookmarked = (pageNo) => !!bookmarks[`${current?.serial_no}_${pageNo}`];
 
   const saveJournals = (list) => {
     setJournals(list);
@@ -1428,43 +1459,123 @@ export default function App() {
   }
 
   if (activePage) {
-    const activeRegions = activePage.template?.regions;
-    const firstActive = activeRegions?.[0];
-    // design_id HER ZAMAN önce gelir
+    // Tüm sayfa listesi
+    const allPagesForDetail = (() => {
+      const template = current?.template || {};
+      const filledMap = {};
+      pages.forEach(p => { filledMap[p.page_no] = p; });
+      if (Object.keys(template).length > 0) {
+        return Object.entries(template).map(([pageNo, tpl]) => {
+          const no = parseInt(pageNo);
+          const filled = filledMap[no];
+          if (filled) return { ...filled, template: tpl };
+          return { page_no: no, template: tpl, template_type: tpl.design_id || "notes", template_data: null, is_empty: true, image_url: null };
+        }).sort((a, b) => a.page_no - b.page_no);
+      }
+      return pages;
+    })();
+
+    const curIdx = allPagesForDetail.findIndex(p => p.page_no === activePage.page_no);
     const tplType = activePage.template_data?.design_id
       || activePage.template?.design_id
       || (activePage.template_type !== "multi" && activePage.template_type !== "notes" ? activePage.template_type : null)
-      || firstActive?.type
       || "notes";
+    const bookmarked = isBookmarked(activePage.page_no);
+
+    const goTo = (idx) => {
+      if (idx >= 0 && idx < allPagesForDetail.length) {
+        setActivePage(allPagesForDetail[idx]);
+      }
+    };
+
     return (
-      <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
-        <div className="detail-header">
-          <button className="back-btn" onClick={() => setActivePage(null)}>← Geri</button>
-          <span className="detail-title">{activePage.template?.title || `Sayfa ${activePage.page_no}`}</span>
-          <span className="detail-page-no">#{activePage.page_no}</span>
+      <div className="detail-flip-screen" style={{"--tc": current?.theme_color || "#8b2500"}}>
+
+        {/* Header */}
+        <div className="df-header">
+          <button className="df-back" onClick={() => setActivePage(null)}>←</button>
+          <div className="df-header-center">
+            <div className="df-page-title">{activePage.template?.title || `Sayfa ${activePage.page_no}`}</div>
+            <div className="df-page-meta">{curIdx + 1} / {allPagesForDetail.length}</div>
+          </div>
+          <div className="df-header-actions">
+            <button className={`df-action-btn ${bookmarked ? "active" : ""}`}
+              onClick={() => toggleBookmark(activePage.page_no)} title="Yer imi">
+              {bookmarked ? "🔖" : "📎"}
+            </button>
+            {activePage.is_empty && (
+              <button className="df-action-btn df-photo-btn"
+                onClick={() => { setActivePage(null); handleUploadPage(); }}>
+                📸
+              </button>
+            )}
+          </div>
         </div>
-        {activePage.image_url && (
-          <div className="detail-image-wrap">
-            <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
-          </div>
+
+        {/* Sayfa içeriği */}
+        <div className="df-content">
+          {activePage.image_url ? (
+            <div className="df-photo-wrap">
+              <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
+            </div>
+          ) : (
+            <div className="df-empty-page">
+              <div className="df-empty-lines">
+                {Array.from({length: 20}).map((_,i) => <div key={i} className="df-empty-line" />)}
+              </div>
+              <div className="df-empty-hint">
+                <span className="df-empty-icon">{activePage.template?.icon || "📄"}</span>
+                <span>Bu sayfa henüz fotoğraflanmadı</span>
+                <button className="df-photo-cta" onClick={() => { setActivePage(null); handleUploadPage(); }}>
+                  📸 Fotoğrafla
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* OCR text */}
+          {!activePage.is_empty && activePage.ocr_text && (
+            <div className="df-ocr">
+              <div className="df-ocr-label">✏️ El Yazısı Notları</div>
+              <OcrTextEditor
+                tplType={tplType}
+                data={editData || activePage.template_data}
+                onSave={handleSaveEdit}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Sayfa çevirme okları */}
+        {curIdx > 0 && (
+          <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1)}>‹</button>
         )}
-        {/* OCR text — düzenlenebilir */}
-        {!activePage.is_empty && activePage.ocr_text && (
-          <div className="detail-ocr">
-            <div className="detail-ocr-label">✏️ Notlar</div>
-            <OcrTextEditor
-              tplType={tplType}
-              data={editData || activePage.template_data}
-              onSave={handleSaveEdit}
-            />
-          </div>
+        {curIdx < allPagesForDetail.length - 1 && (
+          <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1)}>›</button>
         )}
 
-        {activePage.is_empty && (
-          <button className="btn-primary" onClick={() => { setActivePage(null); handleUploadPage(); }}>
-            📸 Bu Sayfayı Fotoğrafla
-          </button>
-        )}
+        {/* Alt thumbnail şeridi */}
+        <div className="df-thumbstrip">
+          {allPagesForDetail.map((p, i) => {
+            const isActive = p.page_no === activePage.page_no;
+            const bm = isBookmarked(p.page_no);
+            return (
+              <div
+                key={p.page_no}
+                className={`df-thumb ${isActive ? "active" : ""} ${!p.is_empty ? "filled" : ""}`}
+                onClick={() => setActivePage(p)}
+              >
+                {!p.is_empty && p.image_url ? (
+                  <img src={`${API}${p.image_url}`} alt="" className="df-thumb-img" />
+                ) : (
+                  <div className="df-thumb-empty">{p.template?.icon || "📄"}</div>
+                )}
+                <div className="df-thumb-num">{p.page_no}</div>
+                {bm && <div className="df-thumb-bm">🔖</div>}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -1506,6 +1617,31 @@ export default function App() {
 
         {error && <div className="error-msg" style={{margin:"0 16px 8px"}}>{error}</div>}
 
+        {/* Arama + Filtre */}
+        <div className="journal-toolbar">
+          <div className={`search-bar ${searchOpen ? "open" : ""}`}>
+            <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
+              🔍
+            </button>
+            {searchOpen && (
+              <input
+                className="search-input"
+                autoFocus
+                placeholder="Sayfalar içinde ara..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            )}
+            {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
+          </div>
+          <div className="filter-tabs">
+            {[["all","Tümü"],["filled","✓"],["empty","○"],["bookmarked","🔖"]].map(([f,l]) => (
+              <button key={f} className={`filter-tab ${filterMode===f?"active":""}`}
+                onClick={() => setFilterMode(f)}>{l}</button>
+            ))}
+          </div>
+        </div>
+
         {/* Spiral bağlayıcı */}
         <div className="spiral-strip">
           {Array.from({length: 18}).map((_, i) => <div key={i} className="spiral-ring" />)}
@@ -1514,23 +1650,34 @@ export default function App() {
         {/* Flip Book — yan yana sayfalar */}
         <div className="flipbook-container">
           <div className="flipbook-pages">
-            {allPagesList.map((pageData, idx) => {
+            {allPagesList
+              .filter(p => {
+                if (searchQuery && searchResults.length > 0) {
+                  return searchResults.some(r => r.page_no === p.page_no);
+                }
+                if (filterMode === "filled") return !p.is_empty;
+                if (filterMode === "empty") return p.is_empty;
+                if (filterMode === "bookmarked") return isBookmarked(p.page_no);
+                return true;
+              })
+              .map((pageData, idx) => {
               const tplType = pageData.template_type || pageData.template?.design_id || "notes";
               const icon = pageData.template?.icon || "📄";
               const title = pageData.template?.title || `Sayfa ${pageData.page_no}`;
               const isFilled = !pageData.is_empty && pageData.image_url;
+              const bm = isBookmarked(pageData.page_no);
+              const isSearchHit = searchQuery && searchResults.some(r => r.page_no === pageData.page_no);
               return (
                 <div
                   key={pageData.page_no}
-                  className={`flip-page ${isFilled ? "filled" : "empty"}`}
+                  className={`flip-page ${isFilled ? "filled" : "empty"} ${isSearchHit ? "search-hit" : ""}`}
                   onClick={() => setActivePage(pageData)}
                   style={{"--delay": `${idx * 0.03}s`}}
                 >
-                  {/* Sayfa sol kenar çizgisi */}
                   <div className="flip-page-margin" />
-                  {/* Sayfa içeriği */}
                   <div className="flip-page-inner">
                     <div className="flip-page-num">{pageData.page_no}</div>
+                    {bm && <div className="flip-page-bm">🔖</div>}
                     {isFilled ? (
                       <div className="flip-page-photo">
                         <img src={`${API}${pageData.image_url}`} alt="" />
@@ -2312,6 +2459,310 @@ const styles = `
   .tpl-hd-body { flex: 1; min-height: 50px; padding: 2px; border-right: 1px solid var(--border); }
   .tpl-hd-item { font-size: 7px; color: var(--ink); line-height: 1.3; margin-bottom: 1px; }
   .multi-region { display: flex; flex-direction: column; gap: 4px; }
+
+  /* ─── TOOLBAR (arama + filtre) ───────────────────── */
+  .journal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.06);
+    gap: 8px;
+  }
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    max-width: 220px;
+  }
+  .search-toggle {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.15s;
+  }
+  .search-toggle:hover { background: rgba(0,0,0,0.08); }
+  .search-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'Jost', sans-serif;
+    outline: none;
+    background: white;
+    animation: fadeIn 0.2s ease;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-count {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
+
+  .filter-tabs { display: flex; gap: 2px; }
+  .filter-tab {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: white;
+    font-size: 10px;
+    font-family: 'Jost', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--warm);
+  }
+  .filter-tab.active {
+    background: var(--tc, #8b2500);
+    border-color: var(--tc, #8b2500);
+    color: white;
+  }
+
+  .flip-page.search-hit {
+    box-shadow: 0 0 0 2px var(--accent), 2px 4px 12px rgba(0,0,0,0.12);
+  }
+  .flip-page-bm {
+    position: absolute;
+    top: 12px;
+    left: 10px;
+    font-size: 8px;
+    z-index: 2;
+  }
+
+  /* ─── DETAIL FLIP SCREEN ─────────────────────────── */
+  .detail-flip-screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--paper);
+    position: relative;
+  }
+
+  .df-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--tc, #8b2500);
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .df-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cline x1='0' y1='3' x2='6' y2='3' stroke='%23fff' stroke-width='0.8' opacity='0.07'/%3E%3Cline x1='3' y1='0' x2='3' y2='6' stroke='%23fff' stroke-width='0.8' opacity='0.07'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .df-back {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative; z-index: 1;
+    transition: background 0.15s;
+  }
+  .df-back:hover { background: rgba(255,255,255,0.25); }
+  .df-header-center {
+    flex: 1;
+    position: relative; z-index: 1;
+  }
+  .df-page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.2;
+  }
+  .df-page-meta {
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    font-style: italic;
+    margin-top: 1px;
+  }
+  .df-header-actions {
+    display: flex; gap: 6px;
+    position: relative; z-index: 1;
+  }
+  .df-action-btn {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .df-action-btn:hover { background: rgba(255,255,255,0.25); }
+  .df-action-btn.active { background: rgba(255,255,255,0.3); }
+  .df-photo-btn { background: rgba(255,255,255,0.2); }
+
+  .df-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 12px 8px;
+  }
+
+  .df-photo-wrap {
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    margin-bottom: 10px;
+  }
+  .df-photo { width: 100%; display: block; }
+
+  .df-empty-page {
+    background: white;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    min-height: 280px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .df-empty-lines {
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .df-empty-line {
+    height: 1px;
+    background: rgba(180,160,140,0.2);
+  }
+  .df-empty-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--warm);
+    font-size: 13px;
+  }
+  .df-empty-icon { font-size: 36px; opacity: 0.4; }
+  .df-photo-cta {
+    padding: 8px 18px;
+    background: var(--tc, #8b2500);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-family: 'Jost', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: opacity 0.2s;
+  }
+  .df-photo-cta:hover { opacity: 0.85; }
+
+  .df-ocr {
+    background: white;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .df-ocr-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--warm);
+    margin-bottom: 10px;
+  }
+
+  /* Sayfa çevirme okları */
+  .df-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px; height: 52px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 22px;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    z-index: 50;
+    transition: all 0.2s;
+    backdrop-filter: blur(4px);
+  }
+  .df-nav:hover {
+    background: var(--tc, #8b2500);
+    color: white;
+    border-color: transparent;
+  }
+  .df-nav-prev { left: 4px; }
+  .df-nav-next { right: 4px; }
+
+  /* Alt thumbnail şeridi */
+  .df-thumbstrip {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 8px 10px;
+    background: #1c1410;
+    flex-shrink: 0;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .df-thumbstrip::-webkit-scrollbar { height: 2px; }
+  .df-thumbstrip::-webkit-scrollbar-thumb { background: var(--accent); }
+
+  .df-thumb {
+    width: 44px;
+    height: 60px;
+    border-radius: 2px;
+    background: #2d2420;
+    border: 1.5px solid #3d3430;
+    cursor: pointer;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .df-thumb:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .df-thumb.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .df-thumb.filled { background: #2d2420; }
+  .df-thumb-img { width: 100%; height: 100%; object-fit: cover; }
+  .df-thumb-empty { font-size: 16px; opacity: 0.3; }
+  .df-thumb-num {
+    position: absolute;
+    bottom: 2px; right: 3px;
+    font-size: 7px;
+    color: rgba(255,255,255,0.4);
+    font-variant-numeric: tabular-nums;
+  }
+  .df-thumb-bm {
+    position: absolute;
+    top: 1px; left: 2px;
+    font-size: 8px;
+  }
+
   .region-block { border: 1px solid var(--border); border-radius: 4px; padding: 4px; background: var(--soft); }
   .region-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--warm); margin-bottom: 3px; }
 `;
