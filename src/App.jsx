@@ -1142,11 +1142,21 @@ function ConfirmModal({ onConfirm, onCancel }) {
 
 // ─── ANA UYGULAMA ────────────────────────────────────────────────────
 export default function App() {
-  const [step, setStep] = useState("home");
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ajan_current");
+      return saved ? "dashboard" : "home";
+    } catch { return "home"; }
+  });
   const [journals, setJournals] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ajanda_journals") || "[]"); } catch { return []; }
   });
-  const [current, setCurrent] = useState(null);
+  const [current, setCurrent] = useState(() => {
+    try {
+      const saved = localStorage.getItem("ajan_current");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -1202,6 +1212,15 @@ export default function App() {
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
+
+  // Sayfa yenilenince session'dan current varsa pages yükle
+  useEffect(() => {
+    if (current && pages.length === 0) {
+      loadPages(current);
+      loadStreak(current.serial_no);
+      loadPremiumStatus(current.serial_no);
+    }
+  }, []);
 
   // Dark mode
   useEffect(() => {
@@ -1308,7 +1327,7 @@ export default function App() {
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
       saveJournals(updated);
-      setCurrent(journal);
+      saveCurrent(journal);
       await loadPages(journal);
       loadStreak(journal.serial_no);
       setStep("dashboard");
@@ -1340,7 +1359,7 @@ export default function App() {
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
       saveJournals(updated);
-      setCurrent(journal);
+      saveCurrent(journal);
       await loadPages(journal);
       loadStreak(journal.serial_no);
       loadPremiumStatus(journal.serial_no);
@@ -1581,6 +1600,15 @@ export default function App() {
     localStorage.setItem("ajanda_journals", JSON.stringify(list));
   };
 
+  const saveCurrent = (journal) => {
+    setCurrent(journal);
+    if (journal) {
+      localStorage.setItem("ajan_current", JSON.stringify(journal));
+    } else {
+      localStorage.removeItem("ajan_current");
+    }
+  };
+
   const scanQR = async () => {
     if (!isNative) return null;
     await BarcodeScanner.requestPermissions();
@@ -1650,7 +1678,7 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
       const updated = { ...journal, template: data.template, theme_color: data.theme_color };
-      setCurrent(updated);
+      saveCurrent(updated);
       await loadPages(updated);
       loadStreak(updated.serial_no);
       loadYearlyReport(updated.serial_no);
@@ -2378,7 +2406,7 @@ export default function App() {
             <button className="jc-btn" onClick={handleUploadPage} disabled={loading}>
               {loading ? "⏳" : "📸"}
             </button>
-            <button className="jc-btn" onClick={() => { setCurrent(null); setStep("home"); }}>↩</button>
+            <button className="jc-btn" onClick={() => { saveCurrent(null); setStep("home"); setAuthMode("landing"); }}>↩</button>
           </div>
         </div>
 
@@ -2747,7 +2775,7 @@ export default function App() {
                 <span>Verileri Yenile</span>
                 <span>🔄</span>
               </div>
-              <div className="settings-row clickable" onClick={() => { setCurrent(null); setStep("home"); setActiveTab("pages"); }}>
+              <div className="settings-row clickable" onClick={() => { saveCurrent(null); setStep("home"); setActiveTab("pages"); setAuthMode("landing"); }}>
                 <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
                 <span>↩</span>
               </div>
@@ -4663,7 +4691,7 @@ const styles = `
     border: 1px solid #f0d9b5;
     line-height: 1.5;
   }
-  .havale-form { display: flex; flex-direction: column; gap: 4px; color:#000 }
+  .havale-form { display: flex; flex-direction: column; gap: 4px; }
   .havale-form-label { font-size: 11px; font-weight: 600; color: var(--warm); }
   .havale-input {
     padding: 10px 12px;
