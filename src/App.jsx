@@ -1145,7 +1145,11 @@ export default function App() {
   const [step, setStep] = useState(() => {
     try {
       const saved = localStorage.getItem("ajan_current");
-      return saved ? "dashboard" : "home";
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.serial_no) return "dashboard";
+      }
+      return "home";
     } catch { return "home"; }
   });
   const [journals, setJournals] = useState(() => {
@@ -1154,8 +1158,15 @@ export default function App() {
   const [current, setCurrent] = useState(() => {
     try {
       const saved = localStorage.getItem("ajan_current");
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.serial_no) return parsed;
+      }
+      return null;
+    } catch {
+      localStorage.removeItem("ajan_current");
+      return null;
+    }
   });
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2815,7 +2826,10 @@ export default function App() {
           <a href="#ozellikler">Özellikler</a>
           <a href="#temalar">Temalar</a>
           <a href="#fiyatlar">Fiyatlar</a>
-          <button className="al-nav-cta" onClick={() => setAuthMode("login")}>Giriş Yap →</button>
+          {current
+            ? <button className="al-nav-cta" onClick={() => setStep("dashboard")}>Panele Gir →</button>
+            : <button className="al-nav-cta" onClick={() => setAuthMode("login")}>Giriş Yap →</button>
+          }
         </div>
       </nav>
 
@@ -2827,15 +2841,28 @@ export default function App() {
           <div className="al-badge">✦ Yeni Nesil Ajanda Deneyimi</div>
           <h1 className="al-h1">Fiziksel ajandanı<br/><span>dijitalleştir</span></h1>
           <p className="al-p">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et.</p>
-          <div className="al-btns">
-            <button className="al-btn-primary" onClick={() => setAuthMode("register")}>
-              📒 Yeni Ajanda Tanımla
-            </button>
-            <button className="al-btn-secondary" onClick={() => setAuthMode("login")}>
-              Giriş Yap →
-            </button>
-          </div>
-          {journals.length > 0 && (
+          {current ? (
+            /* Oturum açık */
+            <div className="al-btns">
+              <button className="al-btn-primary" onClick={() => setStep("dashboard")}>
+                📖 Panele Gir →
+              </button>
+              <button className="al-btn-secondary" onClick={() => { saveCurrent(null); setStep("home"); }}>
+                Çıkış Yap
+              </button>
+            </div>
+          ) : (
+            /* Oturum yok */
+            <div className="al-btns">
+              <button className="al-btn-primary" onClick={() => setAuthMode("login")}>
+                Giriş Yap →
+              </button>
+              <button className="al-btn-secondary" onClick={() => setAuthMode("register")}>
+                📒 Yeni Ajanda Tanımla
+              </button>
+            </div>
+          )}
+          {!current && journals.length > 0 && (
             <div className="al-saved">
               <div className="al-saved-label">Kayıtlı ajandalarım</div>
               {journals.map(j => (
