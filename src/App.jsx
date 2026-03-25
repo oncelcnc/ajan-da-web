@@ -1022,35 +1022,49 @@ function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave
   return <PageTemplate type={tplType} data={data} empty={empty} themeColor={themeColor} />;
 }
 
-// ─── OCR TEXT EDITOR — sadece el yazısı kısımları ───────────────────
+// ─── OCR TEXT EDITOR ─────────────────────────────────────────────────
 function OcrTextEditor({ tplType, data, onSave }) {
-  const haftalikTypes = ["haftalik_tekli1","haftalik_dikey","haftalik_tekli2","haftalik_yatay","haftalik_yatay_2"];
   const dayKeys = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-  const dayLabels = {"monday":"Pazartesi","tuesday":"Salı","wednesday":"Çarşamba",
-    "thursday":"Perşembe","friday":"Cuma","saturday":"Cumartesi","sunday":"Pazar"};
+  const dayLabels = {
+    monday:"Pazartesi", tuesday:"Salı", wednesday:"Çarşamba",
+    thursday:"Perşembe", friday:"Cuma", saturday:"Cumartesi", sunday:"Pazar"
+  };
+  const haftalikTypes = ["haftalik_tekli1","haftalik_dikey","haftalik_tekli2",
+    "haftalik_yatay","haftalik_yatay_2","yemek_plan"];
 
-  const [vals, setVals] = useState({});
-
-  // Data'dan el yazısı değerlerini çıkar
-  const getHandwritten = () => {
-    const result = {};
-    if (!data?.regions) return result;
-    Object.entries(data.regions).forEach(([rid, region]) => {
-      const items = region.data?.items;
-      const content = region.data?.content;
-      const val = (Array.isArray(items) && items.length > 0) ? items.join(", ") : (content || "");
-      if (val.trim()) result[rid] = val;
-    });
-    return result;
+  // Regions'dan ham OCR metnini çıkar
+  const getRawOcr = () => {
+    if (!data?.regions) return data?.ocr_text || "";
+    return Object.values(data.regions)
+      .map(r => r.ocr_text || "")
+      .filter(Boolean)
+      .join(" | ");
   };
 
-  useEffect(() => {
-    setVals(getHandwritten());
-  }, [data]);
+  // Regions'dan gün bazlı değerleri çıkar
+  const getDayVal = (key) => {
+    if (!data?.regions) return data?.[key] || "";
+    const region = data.regions[key];
+    if (!region) return "";
+    const items = region.data?.items;
+    const content = region.data?.content;
+    if (Array.isArray(items) && items.length > 0) return items.join(", ");
+    return content || "";
+  };
 
-  const save = (rid, val) => {
-    setVals(prev => ({...prev, [rid]: val}));
-    onSave(rid, "content", val);
+  const [vals, setVals] = useState(() => {
+    const init = {};
+    if (haftalikTypes.includes(tplType)) {
+      dayKeys.forEach(d => { init[d] = getDayVal(d); });
+    } else {
+      init["_ocr"] = getRawOcr();
+    }
+    return init;
+  });
+
+  const save = (key, val) => {
+    setVals(prev => ({...prev, [key]: val}));
+    onSave(key, "content", val);
   };
 
   if (haftalikTypes.includes(tplType)) {
@@ -1071,27 +1085,25 @@ function OcrTextEditor({ tplType, data, onSave }) {
     );
   }
 
-  // Genel: tüm region'ları göster
-  if (data?.regions) {
+  // Diğer sayfalar — ham OCR + region bazlı alanlar
+  const regionEntries = data?.regions
+    ? Object.entries(data.regions).filter(([,r]) => r.ocr_text?.trim())
+    : [];
+
+  if (regionEntries.length > 0) {
     return (
       <div className="ocr-editor">
-        {Object.entries(data.regions).map(([rid, region]) => {
-          const items = region.data?.items;
-          const content = region.data?.content;
-          const val = (Array.isArray(items) && items.length > 0) ? items.join(", ") : (content || "");
-          if (!val.trim()) return null;
-          return (
-            <div key={rid} className="ocr-field">
-              <label className="ocr-label">{region.label}</label>
-              <textarea
-                className="ocr-textarea"
-                value={vals[rid] || val}
-                onChange={e => save(rid, e.target.value)}
-                rows={2}
-              />
-            </div>
-          );
-        })}
+        {regionEntries.map(([rid, region]) => (
+          <div key={rid} className="ocr-field">
+            <label className="ocr-label">{region.label}</label>
+            <textarea
+              className="ocr-textarea"
+              value={vals[rid] !== undefined ? vals[rid] : (region.ocr_text || "")}
+              onChange={e => save(rid, e.target.value)}
+              rows={2}
+            />
+          </div>
+        ))}
       </div>
     );
   }
@@ -1100,8 +1112,8 @@ function OcrTextEditor({ tplType, data, onSave }) {
     <div className="ocr-editor">
       <textarea
         className="ocr-textarea"
-        value={vals["content"] || data?.content || ""}
-        onChange={e => save("content", e.target.value)}
+        value={vals["_ocr"] || ""}
+        onChange={e => save("_ocr", e.target.value)}
         rows={4}
         placeholder="El yazısı içeriği..."
       />
@@ -1434,12 +1446,12 @@ export default function App() {
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
-        {/* Vektörel şablon — OCR verisiyle doldurulmuş hali */}
+        {/* Vektörel şablon — her zaman boş/temiz çizilir */}
         <div className="detail-template">
           <PageTemplate
             type={tplType}
-            data={mapHaftalikData(tplType, activePage.template_data)}
-            empty={activePage.is_empty}
+            data={null}
+            empty={true}
             themeColor={current?.theme_color}
           />
         </div>
