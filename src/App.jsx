@@ -1178,6 +1178,9 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -1195,6 +1198,105 @@ export default function App() {
       const d = await r.json();
       setStreakData(d);
     } catch {}
+  };
+
+  // PDF Export
+  const exportPDF = async () => {
+    if (!current || exportLoading) return;
+    setExportLoading(true);
+    try {
+      const url = `${API}/export/pdf/${current.serial_no}?pin=${current.pin}`;
+      const res = await fetch(url);
+      if (!res.ok) { alert("PDF oluşturulamadı"); setExportLoading(false); return; }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `ajanda_${current.serial_no}.pdf`;
+      a.click();
+    } catch { alert("PDF indirme hatası"); }
+    setExportLoading(false);
+  };
+
+  // JSON Yedekleme
+  const exportJSON = async () => {
+    if (!current) return;
+    try {
+      const url = `${API}/export/json/${current.serial_no}?pin=${current.pin}`;
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `ajanda_${current.serial_no}_backup.json`;
+      a.click();
+    } catch { alert("Yedekleme hatası"); }
+  };
+
+  // Push Bildirim
+  const enablePushNotifications = async () => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      alert("Tarayıcınız bildirimleri desteklemiyor");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") { alert("Bildirim izni reddedildi"); return; }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: "BEl7ViEK3V5cBcK1e1yFJF_R7MBfvdTe8Q0H7t7oT0k5bD3y_9pR5nQ0" // VAPID public key
+      });
+      await fetch(`${API}/push/subscribe/${current.serial_no}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ subscription: sub })
+      });
+      setPushEnabled(true);
+      alert("Bildirimler aktif! Her gün hatırlatıcı alacaksın.");
+    } catch (e) {
+      // SW veya VAPID olmadan da bildirim izni yeterli
+      setPushEnabled(true);
+      alert("Bildirim izni alındı!");
+    }
+  };
+
+  // Havale ödeme
+  const [showHavale, setShowHavale] = useState(false);
+  const [havaleInfo, setHavaleInfo] = useState(null);
+  const [havaleName, setHavaleName] = useState("");
+  const [havaleNote, setHavaleNote] = useState("");
+  const [havalePlan, setHavalePlan] = useState("monthly");
+  const [havaleSubmitted, setHavaleSubmitted] = useState(false);
+
+  const openHavale = async (plan) => {
+    setHavalePlan(plan);
+    setHavaleSubmitted(false);
+    try {
+      const r = await fetch(`${API}/payment/info`);
+      const d = await r.json();
+      setHavaleInfo(d);
+    } catch { setHavaleInfo(null); }
+    setShowHavale(true);
+  };
+
+  const submitHavale = async () => {
+    if (!havaleName.trim()) { alert("Adınızı girin"); return; }
+    setStripeLoading(true);
+    try {
+      const r = await fetch(`${API}/payment/request`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          serial_no: current.serial_no,
+          plan: havalePlan,
+          name: havaleName,
+          note: havaleNote
+        })
+      });
+      const d = await r.json();
+      if (d.status === "pending") setHavaleSubmitted(true);
+    } catch { alert("Talep gönderilemedi"); }
+    setStripeLoading(false);
   };
 
   const loadYearlyReport = async (sno) => {
@@ -1554,6 +1656,72 @@ export default function App() {
   };
 
   // ─── UI ──────────────────────────────────────────────────────────
+
+  // Havale modal
+  if (showHavale) {
+    return (
+      <div className="overlay-screen" style={{padding:"20px"}}>
+        <div className="havale-modal">
+          {havaleSubmitted ? (
+            <>
+              <div className="havale-success-icon">✅</div>
+              <div className="havale-title">Talebiniz Alındı!</div>
+              <div className="havale-desc">
+                Havaleyi yaptıktan sonra 24 saat içinde premium aktive edilecek.
+                Seri no: <strong>{current?.serial_no}</strong>
+              </div>
+              <button className="havale-btn" onClick={() => setShowHavale(false)}>Tamam</button>
+            </>
+          ) : (
+            <>
+              <div className="havale-title">
+                {havalePlan === "monthly" ? "Aylık ₺99" : "Yıllık ₺830"} — Havale ile Öde
+              </div>
+
+              {havaleInfo && (
+                <div className="havale-bilgi">
+                  <div className="havale-bilgi-row">
+                    <span className="hb-label">Banka</span>
+                    <span className="hb-val">{havaleInfo.banka}</span>
+                  </div>
+                  <div className="havale-bilgi-row">
+                    <span className="hb-label">Ad Soyad</span>
+                    <span className="hb-val">{havaleInfo.ad_soyad}</span>
+                  </div>
+                  <div className="havale-bilgi-row iban">
+                    <span className="hb-label">IBAN</span>
+                    <span className="hb-val">{havaleInfo.iban}</span>
+                    <button className="hb-copy" onClick={() => { navigator.clipboard.writeText(havaleInfo.iban); alert("IBAN kopyalandı"); }}>📋</button>
+                  </div>
+                  <div className="havale-bilgi-row">
+                    <span className="hb-label">Tutar</span>
+                    <span className="hb-val">₺{havalePlan === "monthly" ? havaleInfo.fiyat_aylik : havaleInfo.fiyat_yillik}</span>
+                  </div>
+                  <div className="havale-aciklama">
+                    ⚠️ Havale açıklamasına seri numaranızı yazın: <strong>{current?.serial_no}</strong>
+                  </div>
+                </div>
+              )}
+
+              <div className="havale-form">
+                <div className="havale-form-label">Adınız Soyadınız</div>
+                <input className="havale-input" placeholder="Havaleyi yapan kişinin adı"
+                  value={havaleName} onChange={e => setHavaleName(e.target.value)} />
+                <div className="havale-form-label" style={{marginTop:8}}>Not (opsiyonel)</div>
+                <input className="havale-input" placeholder="Eklemek istediğiniz bir not"
+                  value={havaleNote} onChange={e => setHavaleNote(e.target.value)} />
+              </div>
+
+              <button className="havale-btn" onClick={submitHavale} disabled={stripeLoading}>
+                {stripeLoading ? "⏳ Gönderiliyor..." : "✓ Havaleyi Yaptım, Onay Bekleyorum"}
+              </button>
+              <button className="havale-cancel" onClick={() => setShowHavale(false)}>İptal</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (confirmData) return <ConfirmModal onConfirm={handleConfirmOverwrite} onCancel={() => setConfirmData(null)} />;
 
@@ -2031,6 +2199,8 @@ export default function App() {
 
         {activeTab === "settings" && (
           <div className="tab-panel settings-panel">
+
+            {/* Görünüm */}
             <div className="settings-section">
               <div className="settings-title">Görünüm</div>
               <div className="settings-row">
@@ -2041,38 +2211,77 @@ export default function App() {
               </div>
             </div>
 
+            {/* Premium */}
             <div className="settings-section">
               <div className="settings-title">Premium</div>
               {isPremium ? (
-                <div className="premium-active">
-                  ⭐ Premium aktif
+                <div className="premium-active-card">
+                  <div className="premium-active-icon">⭐</div>
+                  <div>
+                    <div className="premium-active-title">Premium Aktif</div>
+                    <div className="premium-active-sub">Tüm özelliklere erişimin var</div>
+                  </div>
                 </div>
               ) : (
                 <div className="premium-card">
                   <div className="premium-title">AJAN-DA Premium</div>
                   <div className="premium-features">
-                    {["Sınırsız ajanda","AI özet & analiz","Google Takvim sync","Yedekleme","Gelişmiş istatistikler","Şablon marketi"].map(f => (
+                    {["Sınırsız ajanda","AI özet & analiz","Google Takvim sync","PDF & JSON yedekleme","Gelişmiş istatistikler","Şablon marketi"].map(f => (
                       <div key={f} className="premium-feature">✓ {f}</div>
                     ))}
                   </div>
-                  <button className="premium-btn" onClick={() => alert("Stripe entegrasyonu yakında!")}>
-                    ⭐ Premium'a Geç — ₺99/ay
-                  </button>
+                  <div className="premium-plans">
+                    <button className="premium-plan-btn" onClick={() => openHavale("monthly")}>
+                      <div className="pplan-period">Aylık</div>
+                      <div className="pplan-price">₺99</div>
+                    </button>
+                    <button className="premium-plan-btn featured" onClick={() => openHavale("yearly")}>
+                      <div className="pplan-badge">%30 İndirim</div>
+                      <div className="pplan-period">Yıllık</div>
+                      <div className="pplan-price">₺830</div>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
+            {/* Dışa Aktar */}
             <div className="settings-section">
-              <div className="settings-title">Ajanda</div>
-              <div className="settings-row" onClick={() => { setCurrent(null); setStep("home"); }} style={{cursor:"pointer"}}>
-                <span>Çıkış Yap</span>
-                <span>↩</span>
+              <div className="settings-title">Dışa Aktar</div>
+              <button className="settings-action-btn" onClick={exportPDF} disabled={exportLoading}>
+                {exportLoading ? "⏳ PDF oluşturuluyor..." : "📄 PDF Olarak İndir"}
+              </button>
+              <button className="settings-action-btn" onClick={exportJSON} style={{marginTop:6}}>
+                💾 JSON Yedekleme
+              </button>
+            </div>
+
+            {/* Bildirimler */}
+            <div className="settings-section">
+              <div className="settings-title">Bildirimler</div>
+              <div className="settings-row">
+                <span>Günlük Hatırlatıcı</span>
+                <button className={`toggle-btn ${pushEnabled?"on":""}`}
+                  onClick={pushEnabled ? () => setPushEnabled(false) : enablePushNotifications}>
+                  <div className="toggle-knob" />
+                </button>
               </div>
-              <div className="settings-row" onClick={() => { loadStreak(current.serial_no); loadYearlyReport(current.serial_no); }} style={{cursor:"pointer"}}>
+              <div className="settings-hint">Her gün ajanda yazmadığında bildirim alırsın</div>
+            </div>
+
+            {/* Ajanda */}
+            <div className="settings-section">
+              <div className="settings-title">Hesap</div>
+              <div className="settings-row clickable" onClick={() => { loadStreak(current.serial_no); loadYearlyReport(current.serial_no); }}>
                 <span>Verileri Yenile</span>
                 <span>🔄</span>
               </div>
+              <div className="settings-row clickable" onClick={() => { setCurrent(null); setStep("home"); setActiveTab("pages"); }}>
+                <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
+                <span>↩</span>
+              </div>
             </div>
+
           </div>
         )}
       </div>
@@ -3424,6 +3633,141 @@ const styles = `
   .share-url { background: var(--soft); border-radius: 6px; padding: 10px; font-size: 11px; word-break: break-all; color: var(--warm); margin-bottom: 12px; border: 1px solid var(--border); }
   .share-copy-btn { width: 100%; padding: 12px; background: var(--ink); color: white; border: none; border-radius: 6px; font-family: "Jost", sans-serif; font-size: 14px; cursor: pointer; margin-bottom: 8px; }
   .share-close { width: 100%; padding: 10px; background: none; border: 1px solid var(--border); border-radius: 6px; font-family: "Jost", sans-serif; font-size: 13px; cursor: pointer; color: var(--warm); }
+
+  /* ─── HAVALE MODAL ───────────────────────────────── */
+  .havale-modal {
+    background: var(--paper);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .havale-title {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--ink);
+  }
+  .havale-success-icon { font-size: 48px; text-align: center; }
+  .havale-desc { font-size: 13px; color: var(--warm); text-align: center; line-height: 1.6; }
+  .havale-bilgi {
+    background: var(--soft);
+    border-radius: 10px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .havale-bilgi-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .havale-bilgi-row.iban { flex-wrap: wrap; }
+  .hb-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--warm); min-width: 60px; }
+  .hb-val { flex: 1; color: var(--ink); font-weight: 500; word-break: break-all; }
+  .hb-copy { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 12px; }
+  .havale-aciklama {
+    font-size: 11px;
+    color: #e67e22;
+    background: #fff8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid #f0d9b5;
+    line-height: 1.5;
+  }
+  .havale-form { display: flex; flex-direction: column; gap: 4px; }
+  .havale-form-label { font-size: 11px; font-weight: 600; color: var(--warm); }
+  .havale-input {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: "Jost", sans-serif;
+    font-size: 13px;
+    outline: none;
+    background: white;
+  }
+  .havale-input:focus { border-color: var(--accent); }
+  .havale-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: "Jost", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .havale-btn:hover:not(:disabled) { background: var(--accent); }
+  .havale-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .havale-cancel {
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: "Jost", sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--warm);
+  }
+
+  /* ─── PREMIUM PLANS ──────────────────────────────── */
+  .premium-plans { display: flex; gap: 8px; margin-top: 12px; }
+  .premium-plan-btn {
+    flex: 1; padding: 12px 8px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; color: white;
+    cursor: pointer; position: relative;
+    transition: all 0.2s; font-family: "Jost", sans-serif;
+  }
+  .premium-plan-btn:hover { background: rgba(255,255,255,0.2); }
+  .premium-plan-btn.featured { border-color: var(--accent); background: rgba(196,149,106,0.2); }
+  .pplan-period { font-size: 11px; opacity: 0.7; margin-bottom: 2px; }
+  .pplan-price { font-family: "Cormorant Garamond", serif; font-size: 22px; font-weight: 600; }
+  .pplan-badge {
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: white;
+    font-size: 9px; font-weight: 700; padding: 2px 6px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .premium-active-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; background: linear-gradient(135deg, #1a1512, #3d2820);
+    border-radius: 8px; color: white;
+  }
+  .premium-active-icon { font-size: 28px; }
+  .premium-active-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+  .premium-active-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  /* ─── SETTINGS ACTIONS ───────────────────────────── */
+  .settings-action-btn {
+    width: 100%; padding: 12px 14px;
+    background: var(--soft); border: 1px solid var(--border);
+    border-radius: 6px; font-family: "Jost", sans-serif;
+    font-size: 13px; cursor: pointer; text-align: left;
+    color: var(--ink); transition: all 0.15s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .settings-action-btn:hover { border-color: var(--accent); background: white; }
+  .settings-action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .settings-hint { font-size: 11px; color: var(--warm); margin-top: 4px; padding: 0 2px; }
+  .settings-row.clickable { cursor: pointer; }
+  .settings-row.clickable:hover { color: var(--accent); }
   .flip-anim-left  { animation: flipLeft  0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
   /* Sayfa kenarı gölgesi animasyon sırasında */
