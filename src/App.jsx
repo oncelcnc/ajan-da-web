@@ -1427,16 +1427,12 @@ export default function App() {
   if (activePage) {
     const activeRegions = activePage.template?.regions;
     const firstActive = activeRegions?.[0];
-    // design_id her zaman önce gelir — multi/notes asla şablon tipi olamaz
-    const rawType = activePage.template_type
+    // design_id HER ZAMAN önce gelir
+    const tplType = activePage.template_data?.design_id
       || activePage.template?.design_id
-      || activePage.template_data?.design_id
+      || (activePage.template_type !== "multi" && activePage.template_type !== "notes" ? activePage.template_type : null)
       || firstActive?.type
       || "notes";
-    // "multi" ise template_data'dan design_id al
-    const tplType = (rawType === "multi" || rawType === "notes")
-      ? (activePage.template_data?.design_id || activePage.template?.design_id || rawType)
-      : rawType;
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
