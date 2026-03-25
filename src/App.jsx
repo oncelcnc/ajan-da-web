@@ -1230,6 +1230,8 @@ export default function App() {
       loadPages(current);
       loadStreak(current.serial_no);
       loadPremiumStatus(current.serial_no);
+      loadFriends(current);
+      loadYearlyReport(current.serial_no);
     }
   }, []);
 
@@ -1417,10 +1419,11 @@ export default function App() {
     } catch { alert("Davet linki oluşturulamadı"); }
   };
 
-  const loadFriends = async () => {
-    if (!current) return;
+  const loadFriends = async (cur) => {
+    const c = cur || current;
+    if (!c) return;
     try {
-      const r = await fetch(`${API}/friend/list/${current.serial_no}?pin=${current.pin}`);
+      const r = await fetch(`${API}/friend/list/${c.serial_no}?pin=${c.pin}`);
       const d = await r.json();
       setFriends(Array.isArray(d) ? d : []);
     } catch {}
