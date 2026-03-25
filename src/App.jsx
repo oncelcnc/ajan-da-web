@@ -1675,7 +1675,7 @@ export default function App() {
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
       saveJournals(updated);
-      setCurrent(journal);
+      saveCurrent(journal);
       await loadPages(journal);
       setStep("dashboard");
     } catch { setError("Bağlantı hatası"); }
@@ -2386,7 +2386,7 @@ export default function App() {
     );
   }
 
-  if (step === "dashboard" && current) {
+  if (current && step === "dashboard") {
     const allPagesList = (() => {
       const template = current?.template || {};
       const filledMap = {};
@@ -2814,6 +2814,12 @@ export default function App() {
         </button>
       </div>
     );
+  }
+
+  // Current varsa direkt dashboard
+  if (current) {
+    if (step !== "dashboard") setStep("dashboard");
+    return null;
   }
 
   return (
