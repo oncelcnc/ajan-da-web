@@ -600,14 +600,17 @@ function TemplateHaftalikDikey({ data, empty }) {
         {days.map(d => (
           <div key={d.key} className={`tpl-hw-head ${d.weekend?"wknd":""}`}>{d.short}</div>
         ))}
-        {hours.map((h, hi) => days.map(d => (
-          <div key={d.key+h} className="tpl-hw-cell">
-            <span className="tpl-hw-hour">{h}</span>
-            {!empty && hi===0 && getItems(data?.[d.key]).map((item,i) => (
-              <div key={i} className="tpl-hw-entry">{item}</div>
-            ))}
-          </div>
-        )))}
+        {hours.map((h, hi) => days.map(d => {
+          const items = getItems(data?.[d.key]);
+          // Her saat dilimine bir item yerleştir
+          const item = !empty && items[hi] ? items[hi] : null;
+          return (
+            <div key={d.key+h} className="tpl-hw-cell">
+              <span className="tpl-hw-hour">{h}</span>
+              {item && <div className="tpl-hw-entry">{item}</div>}
+            </div>
+          );
+        }))}
       </div>
     </div>
   );
@@ -1445,12 +1448,12 @@ export default function App() {
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
-        {/* Vektörel şablon — her zaman boş/temiz çizilir */}
+        {/* Vektörel şablon — OCR el yazısı verisiyle dolu hali */}
         <div className="detail-template">
           <PageTemplate
             type={tplType}
-            data={null}
-            empty={true}
+            data={mapHaftalikData(tplType, activePage.template_data)}
+            empty={activePage.is_empty}
             themeColor={current?.theme_color}
           />
         </div>
