@@ -1305,8 +1305,7 @@ export default function App() {
   };
 
   const mapHaftalikData = (tplType, tplData) => {
-    const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2","haftalik_tekli1","haftalik_tekli2","haftalik_kapanisi","yemek_plan"];
-    if (!tplData?.regions || !haftalikTypes.includes(tplType)) return tplData;
+    if (!tplData?.regions) return tplData;
     const r = tplData.regions;
     const getVal = (region) => {
       if (!region) return "";
@@ -1316,13 +1315,34 @@ export default function App() {
       if (content) return content;
       return "";
     };
-    return {
-      week: r.header?.data?.title || "",
-      monday: getVal(r.monday), tuesday: getVal(r.tuesday),
-      wednesday: getVal(r.wednesday), thursday: getVal(r.thursday),
-      friday: getVal(r.friday), saturday: getVal(r.saturday),
-      sunday: getVal(r.sunday), notes: getVal(r.notes),
-    };
+    const haftalikTypes = ["haftalik_dikey","haftalik_yatay","haftalik_yatay_2",
+      "haftalik_tekli1","haftalik_tekli2","haftalik_kapanisi","yemek_plan"];
+    if (haftalikTypes.includes(tplType)) {
+      return {
+        week: r.header?.data?.title || r.header?.data?.subtitle || "",
+        month: r.header?.data?.title || "",
+        monday: getVal(r.monday), tuesday: getVal(r.tuesday),
+        wednesday: getVal(r.wednesday), thursday: getVal(r.thursday),
+        friday: getVal(r.friday), saturday: getVal(r.saturday),
+        sunday: getVal(r.sunday), notes: getVal(r.notes),
+        energy_down: getVal(r.energy_down), proud: getVal(r.proud),
+        release: getVal(r.release), lesson_rel: getVal(r.lesson_rel),
+        lesson_work: getVal(r.lesson_work), lesson_self: getVal(r.lesson_self),
+        next_intent: getVal(r.next_intent),
+      };
+    }
+    // Diğer şablonlar için regions'ı düz objeye çevir
+    const mapped = { design_id: tplData.design_id, title: tplData.title };
+    Object.entries(r).forEach(([rid, region]) => {
+      if (region.data) {
+        const items = region.data.items;
+        const content = region.data.content;
+        mapped[rid] = (Array.isArray(items) && items.length > 0) ? items : (content || "");
+        // region'ın tüm data alanlarını da ekle
+        Object.assign(mapped, region.data);
+      }
+    });
+    return mapped;
   };
 
   const renderPageCard = (pageData) => {
@@ -1392,11 +1412,16 @@ export default function App() {
   if (activePage) {
     const activeRegions = activePage.template?.regions;
     const firstActive = activeRegions?.[0];
-    const tplType = activePage.template_type
+    // design_id her zaman önce gelir — multi/notes asla şablon tipi olamaz
+    const rawType = activePage.template_type
       || activePage.template?.design_id
       || activePage.template_data?.design_id
       || firstActive?.type
       || "notes";
+    // "multi" ise template_data'dan design_id al
+    const tplType = (rawType === "multi" || rawType === "notes")
+      ? (activePage.template_data?.design_id || activePage.template?.design_id || rawType)
+      : rawType;
     return (
       <div className="screen detail-screen" style={{ "--theme": current?.theme_color || "#2d4a3e" }}>
         <div className="detail-header">
