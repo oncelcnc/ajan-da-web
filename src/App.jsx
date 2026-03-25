@@ -137,7 +137,7 @@ function TemplateMonthly({ data, empty }) {
         {days.map(d => <div key={d} className="tpl-month-header">{d}</div>)}
         {Array.from({ length: 35 }).map((_, i) => {
           const day = i + 1;
-          const marked = day <= 31 && markedDays.includes(day);
+          const marked = !empty && day <= 31 && markedDays.includes(day);
           return (
             <div key={i} className={`tpl-month-day ${marked ? "marked" : ""}`}>
               {day <= 31 ? day : ""}
@@ -145,7 +145,6 @@ function TemplateMonthly({ data, empty }) {
           );
         })}
       </div>
-      {empty && <Empty />}
     </div>
   );
 }
@@ -422,7 +421,7 @@ function TemplateButce({ data, empty }) {
   return (
     <div className="tpl-butce">
       <TplHeader icon="💰" title="Aylık Bütçe Takip" />
-      {empty ? <Empty /> : (
+      {(
         <>
           {data?.goals?.length > 0 && (
             <div className="tpl-section">
@@ -611,37 +610,51 @@ function TemplateHaftalikDikey({ data, empty }) {
   );
 }
 
-// Haftalık Tekli-1 (7 kutu + notlar)
+// Haftalık Plan — PDF'teki gibi 7 sütun x saat dilimleri
+// Şablon yazıları (gün adları, saatler) her zaman görünür
+// OCR el yazısı verileri de üstüne eklenir
 function TemplateHaftalikTekli1({ data, empty }) {
   const days = [
-    {key:"monday",   label:"Pazartesi"},
-    {key:"tuesday",  label:"Salı"},
-    {key:"wednesday",label:"Çarşamba"},
-    {key:"thursday", label:"Perşembe"},
-    {key:"friday",   label:"Cuma"},
-    {key:"saturday", label:"Cumartesi"},
-    {key:"sunday",   label:"Pazar"},
+    {key:"monday",   short:"PAZ", weekend:false},
+    {key:"tuesday",  short:"SAL", weekend:false},
+    {key:"wednesday",short:"ÇAR", weekend:false},
+    {key:"thursday", short:"PER", weekend:false},
+    {key:"friday",   short:"CUM", weekend:false},
+    {key:"saturday", short:"CMT", weekend:true},
+    {key:"sunday",   short:"PAZ", weekend:true},
   ];
+  const hours = ["7:00","9:00","11:00","13:00","15:00"];
+  const getItems = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(Boolean);
+    if (typeof val === "string" && val.trim()) return val.split(/[
+,]+/).filter(Boolean);
+    return [];
+  };
   return (
-    <div className="tpl-haftalik-tekli">
-      <TplHeader icon="1️⃣" title="Haftalık" />
-      {data?.month && <div className="tpl-date">{data.month}</div>}
-      {empty ? <Empty /> : (
-        <div className="tpl-tekli-grid">
-          {days.map(d => (
-            <div key={d.key} className="tpl-tekli-box">
-              <div className="tpl-day-name">{d.label}</div>
-              <div className="tpl-day-content">{data?.[d.key] || ""}</div>
+    <div className="tpl-hw">
+      <div className="tpl-hw-title">
+        {data?.week ? `HAFTALIK PLAN — ${data.week}` : "HAFTALIK PLAN"}
+      </div>
+      <div className="tpl-hw-grid">
+        {/* Gün başlıkları — şablon yazısı, her zaman görünür */}
+        {days.map(d => (
+          <div key={d.key} className={`tpl-hw-head ${d.weekend?"wknd":""}`}>{d.short}</div>
+        ))}
+        {/* Saat dilimleri — şablon çizgisi + el yazısı */}
+        {hours.map((h, hi) => days.map(d => {
+          const items = getItems(data?.[d.key]);
+          return (
+            <div key={d.key+h} className="tpl-hw-cell">
+              <span className="tpl-hw-hour">{h}</span>
+              {/* El yazısı sadece ilk saat diliminde göster */}
+              {!empty && hi === 0 && items.map((item, i) => (
+                <div key={i} className="tpl-hw-entry">{item}</div>
+              ))}
             </div>
-          ))}
-          {data?.notes && (
-            <div className="tpl-tekli-box notes-box">
-              <div className="tpl-day-name">notes</div>
-              <div className="tpl-day-content">{data.notes}</div>
-            </div>
-          )}
-        </div>
-      )}
+          );
+        }))}
+      </div>
     </div>
   );
 }
@@ -1010,6 +1023,93 @@ function EditablePageView({ activePage, tplType, data, empty, themeColor, onSave
   return <PageTemplate type={tplType} data={data} empty={empty} themeColor={themeColor} />;
 }
 
+// ─── OCR TEXT EDITOR — sadece el yazısı kısımları ───────────────────
+function OcrTextEditor({ tplType, data, onSave }) {
+  const haftalikTypes = ["haftalik_tekli1","haftalik_dikey","haftalik_tekli2","haftalik_yatay","haftalik_yatay_2"];
+  const dayKeys = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+  const dayLabels = {"monday":"Pazartesi","tuesday":"Salı","wednesday":"Çarşamba",
+    "thursday":"Perşembe","friday":"Cuma","saturday":"Cumartesi","sunday":"Pazar"};
+
+  const [vals, setVals] = useState({});
+
+  // Data'dan el yazısı değerlerini çıkar
+  const getHandwritten = () => {
+    const result = {};
+    if (!data?.regions) return result;
+    Object.entries(data.regions).forEach(([rid, region]) => {
+      const items = region.data?.items;
+      const content = region.data?.content;
+      const val = (Array.isArray(items) && items.length > 0) ? items.join(", ") : (content || "");
+      if (val.trim()) result[rid] = val;
+    });
+    return result;
+  };
+
+  useEffect(() => {
+    setVals(getHandwritten());
+  }, [data]);
+
+  const save = (rid, val) => {
+    setVals(prev => ({...prev, [rid]: val}));
+    onSave(rid, "content", val);
+  };
+
+  if (haftalikTypes.includes(tplType)) {
+    return (
+      <div className="ocr-editor">
+        {dayKeys.map(d => (
+          <div key={d} className="ocr-field">
+            <label className="ocr-label">{dayLabels[d]}</label>
+            <input
+              className="ocr-input"
+              value={vals[d] || ""}
+              onChange={e => save(d, e.target.value)}
+              placeholder="El yazısı..."
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Genel: tüm region'ları göster
+  if (data?.regions) {
+    return (
+      <div className="ocr-editor">
+        {Object.entries(data.regions).map(([rid, region]) => {
+          const items = region.data?.items;
+          const content = region.data?.content;
+          const val = (Array.isArray(items) && items.length > 0) ? items.join(", ") : (content || "");
+          if (!val.trim()) return null;
+          return (
+            <div key={rid} className="ocr-field">
+              <label className="ocr-label">{region.label}</label>
+              <textarea
+                className="ocr-textarea"
+                value={vals[rid] || val}
+                onChange={e => save(rid, e.target.value)}
+                rows={2}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="ocr-editor">
+      <textarea
+        className="ocr-textarea"
+        value={vals["content"] || data?.content || ""}
+        onChange={e => save("content", e.target.value)}
+        rows={4}
+        placeholder="El yazısı içeriği..."
+      />
+    </div>
+  );
+}
+
 // ─── CONFIRM MODAL ───────────────────────────────────────────────────
 function ConfirmModal({ onConfirm, onCancel }) {
   return (
@@ -1310,14 +1410,28 @@ export default function App() {
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
+        {/* Vektörel şablon — OCR verisiyle doldurulmuş hali */}
         <div className="detail-template">
-          <EditablePageView
-            activePage={activePage} tplType={tplType}
-            data={mapHaftalikData(tplType, editData || activePage.template_data)}
-            empty={activePage.is_empty} themeColor={current?.theme_color}
-            onSave={handleSaveEdit}
+          <PageTemplate
+            type={tplType}
+            data={mapHaftalikData(tplType, activePage.template_data)}
+            empty={activePage.is_empty}
+            themeColor={current?.theme_color}
           />
         </div>
+
+        {/* El yazısı OCR — sadece fotoğraflanmışsa, sadece kalemle yazılanlar */}
+        {!activePage.is_empty && (
+          <div className="detail-ocr">
+            <div className="detail-ocr-label">✏️ El Yazısı</div>
+            <OcrTextEditor
+              tplType={tplType}
+              data={editData || activePage.template_data}
+              onSave={handleSaveEdit}
+            />
+          </div>
+        )}
+
         {activePage.is_empty && (
           <button className="btn-primary" onClick={() => { setActivePage(null); handleUploadPage(); }}>
             📸 Bu Sayfayı Fotoğrafla
@@ -1569,6 +1683,14 @@ const styles = `
   .tpl-day-name { font-size: 9px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
   .tpl-day-content { font-size: 10px; color: var(--ink); }
   .tpl-tekli-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tpl-hw { font-size: 0.7em; }
+  .tpl-hw-title { background: #8b2500; color: white; font-size: 9px; font-weight: 700; text-align: center; padding: 4px; margin-bottom: 2px; border-radius: 3px; }
+  .tpl-hw-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; border: 1px solid #d4a574; }
+  .tpl-hw-head { font-size: 7px; font-weight: 700; text-align: center; padding: 3px 1px; background: #f5ede3; border-right: 1px solid #d4a574; border-bottom: 1px solid #d4a574; }
+  .tpl-hw-head.wknd { background: #8b2500; color: white; }
+  .tpl-hw-cell { min-height: 20px; border-right: 1px solid #e8d5c0; border-bottom: 1px solid #e8d5c0; padding: 1px 2px; position: relative; }
+  .tpl-hw-hour { font-size: 6px; color: #c4956a; display: block; }
+  .tpl-hw-entry { font-size: 7px; color: #1a1512; line-height: 1.2; }
   .tpl-tekli-box { border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-height: 32px; }
   .tpl-tekli2-days { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
   .tpl-tekli2-day { border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
@@ -1608,6 +1730,16 @@ const styles = `
 
   /* Letter */
   .tpl-letter-lines { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+  .detail-ocr { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 16px; }
+  .detail-ocr-label { font-size: 11px; font-weight: 700; color: var(--warm); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .ocr-editor { display: flex; flex-direction: column; gap: 8px; }
+  .ocr-field { display: flex; flex-direction: column; gap: 3px; }
+  .ocr-label { font-size: 10px; font-weight: 600; color: var(--accent); }
+  .ocr-input { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: "DM Sans", sans-serif; outline: none; }
+  .ocr-input:focus { border-color: var(--accent); }
+  .ocr-textarea { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: "DM Sans", sans-serif; outline: none; resize: vertical; }
+  .ocr-textarea:focus { border-color: var(--accent); }
+  .detail-template-label { font-size: 11px; font-weight: 700; color: var(--warm); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 `;
 
 const styleEl = document.createElement("style");
