@@ -1223,26 +1223,13 @@ export default function App() {
     setChatLoading(true);
 
     try {
-      // Sayfa içeriklerini context olarak ver
-      const pagesContext = pages.slice(0, 20).map(p =>
-        `Sayfa ${p.page_no} (${p.template?.title || p.template_type}): ${p.ocr_text || "boş"}`
-      ).join("");
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch(`${API}/ai/chat/${current.serial_no}`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 500,
-          system: `Sen bir kişisel ajanda asistanısın. Kullanıcının ajanda sayfaları:
-${pagesContext}
-
-Kısa, samimi ve Türkçe yanıt ver.`,
-          messages: newMessages
-        })
+        body: JSON.stringify({ messages: newMessages })
       });
       const d = await res.json();
-      const reply = d.content?.[0]?.text || "Yanıt alınamadı";
+      const reply = d.reply || "Yanıt alınamadı";
       setChatMessages([...newMessages, { role: "assistant", content: reply }]);
     } catch {
       setChatMessages([...newMessages, { role: "assistant", content: "Bağlantı hatası." }]);
