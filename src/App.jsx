@@ -2585,80 +2585,207 @@ export default function App() {
   }
 
   return (
-    <div className="landing-home">
-      {/* Hero */}
-      <div className="lh-hero">
-        <div className="lh-hero-bg" />
-        <div className="lh-hero-texture" />
-        <div className="lh-hero-content">
-          <div className="lh-badge">✦ Dijital Ajanda Sistemi</div>
-          <div className="lh-logo">AJAN<span>-DA</span></div>
-          <div className="lh-tagline">Fiziksel ajandanı dijitalleştir</div>
-          <p className="lh-desc">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş.</p>
+    <div className="app-landing">
 
-          {/* Kayıtlı ajandalar */}
+      {/* NAV */}
+      <nav className="al-nav">
+        <div className="al-nav-logo">AJAN<span>-DA</span></div>
+        <div className="al-nav-links">
+          <a href="#ozellikler">Özellikler</a>
+          <a href="#temalar">Temalar</a>
+          <a href="#fiyatlar">Fiyatlar</a>
+          <button className="al-nav-cta" onClick={() => setStep("activate")}>Uygulamayı Aç →</button>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="al-hero">
+        <div className="al-hero-bg" />
+        <div className="al-hero-texture" />
+        <div className="al-hero-content">
+          <div className="al-badge">✦ Yeni Nesil Ajanda Deneyimi</div>
+          <h1 className="al-h1">Fiziksel ajandanı<br/><span>dijitalleştir</span></h1>
+          <p className="al-p">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et.</p>
+          <div className="al-btns">
+            <button className="al-btn-primary" onClick={() => setStep("activate")}>Ücretsiz Başla →</button>
+            <a className="al-btn-secondary" href="#nasil-calisir">Nasıl Çalışır?</a>
+          </div>
           {journals.length > 0 && (
-            <div className="lh-journals">
-              <div className="lh-journals-label">Ajandalarım</div>
-              <div className="lh-journals-list">
-                {journals.map((j, i) => (
-                  <button key={j.serial_no} className="lh-journal-btn"
-                    style={{"--bc": j.theme_color || "#8b2500", "--delay": `${i*0.06}s`}}
-                    onClick={() => handleLogin(j)}>
-                    <div className="lhj-color" style={{background: j.theme_color}} />
-                    <div className="lhj-info">
-                      <div className="lhj-name">{j.theme_name}</div>
-                      <div className="lhj-serial">№ {j.serial_no}</div>
-                    </div>
-                    <div className="lhj-arrow">→</div>
-                  </button>
-                ))}
-              </div>
+            <div className="al-saved">
+              <div className="al-saved-label">Kayıtlı ajandalarım</div>
+              {journals.map(j => (
+                <button key={j.serial_no} className="al-saved-item" onClick={() => handleLogin(j)}>
+                  <span className="al-saved-dot" style={{background: j.theme_color}} />
+                  <span>{j.theme_name} · №{j.serial_no}</span>
+                  <span>→</span>
+                </button>
+              ))}
             </div>
           )}
-
-          <button className="lh-cta" onClick={() => setStep("activate")}>
-            <span>📷</span>
-            <span>{journals.length > 0 ? "Yeni Ajanda Ekle" : "Ajandanı Aktive Et"}</span>
-          </button>
-
           {error && <div className="error-msg" style={{marginTop:12}}>{error}</div>}
-          {loading && <div className="lh-loading">⏳</div>}
         </div>
-
-        {/* Sağda ajanda mockup */}
-        <div className="lh-mockup">
-          <div className="lh-book">
-            <div className="lh-book-spine" />
-            <div className="lh-book-cover">
-              <div className="lh-book-logo">AJAN-DA</div>
-              <div className="lh-book-lines">
-                {Array.from({length:12}).map((_,i) => <div key={i} className="lh-book-line" />)}
+        <div className="al-hero-visual">
+          <div className="al-mockup">
+            <div className="al-mockup-spine" />
+            <div className="al-mockup-content">
+              <div className="al-mockup-logo">AJAN-DA</div>
+              <div className="al-mockup-sub">Kişisel Ajanda · 2025</div>
+              <div className="al-mockup-divider" />
+              <div className="al-mockup-pages">
+                {Array.from({length:8}).map((_,i) => <div key={i} className="al-mockup-line" />)}
               </div>
-              <div className="lh-book-qr">📱</div>
-              <div className="lh-book-pulse" />
             </div>
+            <div className="al-mockup-qr">📱</div>
+            <div className="al-scan-ring" />
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Özellikler şeridi */}
-      <div className="lh-features">
-        {[
-          {icon:"📸", text:"Fotoğrafla Kaydet"},
-          {icon:"🤖", text:"AI Analiz"},
-          {icon:"🔍", text:"Metin Ara"},
-          {icon:"📊", text:"İstatistikler"},
-          {icon:"👥", text:"Arkadaşlarla Paylaş"},
-        ].map(f => (
-          <div key={f.text} className="lh-feature-chip">
-            <span>{f.icon}</span>
-            <span>{f.text}</span>
+      {/* ÖZELLİKLER */}
+      <section className="al-section al-features" id="ozellikler">
+        <div className="al-tag">✦ Özellikler</div>
+        <h2 className="al-section-title">Her şey bir arada</h2>
+        <p className="al-section-sub">Ajandanı daha akıllı kullanmak için ihtiyacın olan her şey</p>
+        <div className="al-features-grid">
+          {[
+            {icon:"📸", title:"Fotoğraf ile Kaydet", desc:"Sayfayı fotoğrafla, QR kod otomatik okunur. OCR ile el yazın metne dönüşür."},
+            {icon:"🤖", title:"AI Analiz", desc:"Ajandanı AI ile analiz et. Alışkanlıklarını bul, haftalık özetler al."},
+            {icon:"📖", title:"Flip Book Arayüzü", desc:"Gerçek bir ajanda gibi sayfa çevir. Arama yap, yer imi koy."},
+            {icon:"📊", title:"İstatistikler", desc:"Streak takibi, yıllık heatmap, en çok kullandığın şablonlar."},
+            {icon:"👥", title:"Arkadaş Sistemi", desc:"Ajandanı arkadaşlarınla paylaş, birbirinin sayfalarını gör."},
+            {icon:"🔒", title:"Güvenli & Özel", desc:"PIN korumalı. İstediğin zaman PDF veya JSON olarak indir."},
+          ].map(f => (
+            <div key={f.title} className="al-feature-card">
+              <div className="al-feature-icon">{f.icon}</div>
+              <div className="al-feature-title">{f.title}</div>
+              <div className="al-feature-desc">{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* NASIL ÇALIŞIR */}
+      <section className="al-section al-how" id="nasil-calisir">
+        <div className="al-tag">✦ Nasıl Çalışır?</div>
+        <h2 className="al-section-title">3 adımda başla</h2>
+        <div className="al-steps">
+          {[
+            {n:"1", title:"Ajandanı Al", desc:"QR kodlu AJAN-DA ajandalarından birini seç."},
+            {n:"2", title:"Kapağı Okut", desc:"Uygulamayı aç, kapak QR'ını okut ve sisteme ekle."},
+            {n:"3", title:"Sayfaları Fotoğrafla", desc:"Doldurduğun sayfaları fotoğrafla, otomatik kaydedilir."},
+            {n:"✦", title:"Keyfini Çıkar", desc:"Notlarını ara, AI ile analiz et, paylaş."},
+          ].map(s => (
+            <div key={s.n} className="al-step">
+              <div className="al-step-num">{s.n}</div>
+              <div className="al-step-title">{s.title}</div>
+              <div className="al-step-desc">{s.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* TEMALAR */}
+      <section className="al-section al-themes" id="temalar">
+        <div className="al-tag">✦ Temalar</div>
+        <h2 className="al-section-title">Kişiliğine uygun ajanda</h2>
+        <p className="al-section-sub">Her tema farklı sayfa tasarımları ve renk paleti ile gelir</p>
+        <div className="al-themes-grid">
+          {[
+            {name:"Manifest", pages:177, color:"#2d4a3e"},
+            {name:"Günlük", pages:450, color:"#5c6bc0"},
+            {name:"Takip", pages:131, color:"#c62828"},
+            {name:"Mini", pages:87, color:"#f57c00"},
+            {name:"Ferdi", pages:101, color:"#8b2500"},
+            {name:"Cici Kuş", pages:150, color:"#c2185b"},
+            {name:"Nokta", pages:77, color:"#1a237e"},
+          ].map(t => (
+            <div key={t.name} className="al-theme-book" style={{background: t.color}}>
+              <div className="al-theme-spine" />
+              <div className="al-theme-content">
+                <div className="al-theme-name">{t.name}</div>
+                <div className="al-theme-pages">{t.pages} sayfa</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FİYATLAR */}
+      <section className="al-section al-pricing" id="fiyatlar">
+        <div className="al-tag">✦ Fiyatlar</div>
+        <h2 className="al-section-title">Basit ve şeffaf</h2>
+        <div className="al-pricing-grid">
+          <div className="al-pricing-card">
+            <div className="al-pricing-name">Ücretsiz</div>
+            <div className="al-pricing-price">₺0</div>
+            <div className="al-pricing-period">sonsuza kadar</div>
+            {["1 ajanda","Fotoğraf yükleme","OCR metin okuma","Temel arama","Flip book arayüzü"].map(f => (
+              <div key={f} className="al-pricing-feature">✓ {f}</div>
+            ))}
+            <button className="al-pricing-btn al-pricing-outline" onClick={() => setStep("activate")}>Başla →</button>
           </div>
-        ))}
-      </div>
+          <div className="al-pricing-card al-pricing-featured">
+            <div className="al-pricing-badge">En Popüler</div>
+            <div className="al-pricing-name">Premium</div>
+            <div className="al-pricing-price">₺99<span>/ay</span></div>
+            <div className="al-pricing-period">veya ₺830/yıl (%30 indirim)</div>
+            {["Sınırsız ajanda","AI özet & analiz","PDF & JSON yedekleme","Gelişmiş istatistikler","Arkadaş sistemi"].map(f => (
+              <div key={f} className="al-pricing-feature">✓ {f}</div>
+            ))}
+            <button className="al-pricing-btn al-pricing-solid" onClick={() => setStep("activate")}>Premium'a Geç →</button>
+          </div>
+        </div>
+        <p className="al-pricing-note">💳 Havale ile ödeme · 7 gün iade garantisi</p>
+      </section>
+
+      {/* SSS */}
+      <section className="al-section al-faq">
+        <div className="al-tag">✦ Sıkça Sorulan Sorular</div>
+        <h2 className="al-section-title">Aklındaki sorular</h2>
+        <div className="al-faq-list">
+          {[
+            {q:"Ajandalar nereden temin edilir?", a:"AJAN-DA ajandaları özel QR kodlarla üretilmektedir. Sipariş için bizimle iletişime geçebilirsiniz."},
+            {q:"Mevcut ajandamı kullanabilir miyim?", a:"QR sticker yapıştırarak mevcut ajandanızı da sisteme ekleyebilirsiniz."},
+            {q:"Fotoğraflarım güvende mi?", a:"Tüm verileriniz PIN korumalıdır. İstediğiniz zaman PDF veya JSON olarak indirebilirsiniz."},
+            {q:"Ödeme nasıl yapılır?", a:"Havale/EFT ile ödeme kabul edilir. 24 saat içinde premium aktive edilir."},
+          ].map((item, i) => (
+            <FaqItem key={i} q={item.q} a={item.a} />
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="al-cta">
+        <div className="al-cta-bg" />
+        <div className="al-cta-content">
+          <h2 className="al-cta-title">Ajandanı dijitalleştir</h2>
+          <p className="al-cta-sub">Ücretsiz başla, istediğin zaman premium'a geç.</p>
+          <button className="al-btn-primary" onClick={() => setStep("activate")}>Hemen Başla →</button>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="al-footer">
+        <div className="al-footer-logo">AJAN-DA</div>
+        <div className="al-footer-links">
+          <a href="#">Gizlilik</a>
+          <a href="#">Koşullar</a>
+          <a href="mailto:info@sociozk.com">İletişim</a>
+        </div>
+        <div className="al-footer-copy">© 2025 AJAN-DA</div>
+      </footer>
 
       <button className="admin-access-btn" onClick={() => setShowAdmin(true)}>⚙️</button>
+    </div>
+  );
+}
+
+function FaqItem({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`al-faq-item ${open ? "open" : ""}`} onClick={() => setOpen(!open)}>
+      <div className="al-faq-q">{q}<span className="al-faq-arrow">{open ? "↑" : "↓"}</span></div>
+      {open && <div className="al-faq-a">{a}</div>}
     </div>
   );
 }
@@ -2690,6 +2817,126 @@ const styles = `
     min-height: 100vh;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23e8e0d0' opacity='0.4'/%3E%3C/svg%3E");
   }
+
+  /* ─── APP LANDING PAGE ──────────────────────────────── */
+  .app-landing { min-height:100vh; background:var(--cream); overflow-x:hidden; }
+
+  /* NAV */
+  .al-nav { position:sticky; top:0; z-index:100; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; background:rgba(245,240,232,0.95); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+  .al-nav-logo { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:600; color:#8b2500; letter-spacing:3px; }
+  .al-nav-logo span { color:var(--ink); opacity:0.5; }
+  .al-nav-links { display:flex; align-items:center; gap:16px; }
+  .al-nav-links a { font-size:12px; color:var(--warm); text-decoration:none; letter-spacing:0.5px; }
+  .al-nav-cta { padding:8px 16px; background:var(--ink); color:white; border:none; border-radius:4px; font-family:'Jost',sans-serif; font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; }
+
+  /* HERO */
+  .al-hero { min-height:100vh; display:flex; align-items:center; justify-content:space-between; padding:60px 20px 40px; position:relative; overflow:hidden; gap:20px; }
+  .al-hero-bg { position:absolute; inset:0; background:linear-gradient(135deg,#1c1410 0%,#3d2010 40%,#1c1410 100%); }
+  .al-hero-texture { position:absolute; inset:0; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cline x1='0' y1='3' x2='6' y2='3' stroke='%23fff' stroke-width='0.5' opacity='0.04'/%3E%3Cline x1='3' y1='0' x2='3' y2='6' stroke='%23fff' stroke-width='0.5' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; }
+  .al-hero-content { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; gap:16px; }
+  .al-badge { display:inline-block; padding:4px 12px; background:rgba(196,149,106,0.15); border:1px solid rgba(196,149,106,0.3); border-radius:20px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:#c4956a; align-self:flex-start; }
+  .al-h1 { font-family:'Cormorant Garamond',serif; font-size:clamp(36px,8vw,60px); font-weight:600; line-height:1.1; color:white; }
+  .al-h1 span { color:#c4956a; font-style:italic; }
+  .al-p { font-size:14px; line-height:1.8; color:rgba(255,255,255,0.55); max-width:280px; }
+  .al-btns { display:flex; gap:10px; flex-wrap:wrap; }
+  .al-btn-primary { padding:14px 24px; background:#c4956a; color:white; border:none; border-radius:4px; font-family:'Jost',sans-serif; font-size:14px; font-weight:500; cursor:pointer; letter-spacing:0.5px; transition:all 0.2s; text-decoration:none; display:inline-block; }
+  .al-btn-primary:hover { background:white; color:var(--ink); }
+  .al-btn-secondary { padding:14px 24px; border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); border-radius:4px; font-size:14px; text-decoration:none; transition:all 0.2s; }
+  .al-btn-secondary:hover { border-color:white; color:white; }
+  .al-saved { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  .al-saved-label { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.25); }
+  .al-saved-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; font-family:'Jost',sans-serif; font-size:12px; color:white; text-align:left; transition:all 0.2s; }
+  .al-saved-item:hover { background:rgba(255,255,255,0.12); }
+  .al-saved-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+  /* MOCKUP */
+  .al-hero-visual { position:relative; z-index:2; flex-shrink:0; }
+  .al-mockup { width:110px; height:160px; position:relative; filter:drop-shadow(0 16px 40px rgba(0,0,0,0.5)); }
+  .al-mockup-spine { position:absolute; left:0; top:0; bottom:0; width:12px; background:rgba(0,0,0,0.3); border-radius:3px 0 0 3px; }
+  .al-mockup-content { position:absolute; left:12px; top:0; right:0; bottom:0; background:#8b2500; border-radius:0 6px 6px 0; overflow:hidden; padding:12px 8px; display:flex; flex-direction:column; gap:4px; }
+  .al-mockup-content::before { content:''; position:absolute; inset:0; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cline x1='0' y1='2' x2='4' y2='2' stroke='%23fff' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E"); }
+  .al-mockup-logo { font-family:'Cormorant Garamond',serif; font-size:10px; color:rgba(255,255,255,0.8); letter-spacing:2px; position:relative; z-index:1; }
+  .al-mockup-sub { font-size:6px; letter-spacing:1px; color:rgba(255,255,255,0.3); text-transform:uppercase; position:relative; z-index:1; }
+  .al-mockup-divider { height:1px; background:rgba(255,255,255,0.15); margin:4px 0; position:relative; z-index:1; }
+  .al-mockup-pages { display:flex; flex-direction:column; gap:5px; flex:1; position:relative; z-index:1; }
+  .al-mockup-line { height:1px; background:rgba(255,255,255,0.1); }
+  .al-mockup-qr { position:absolute; bottom:8px; right:8px; width:24px; height:24px; background:white; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:12px; z-index:2; }
+  .al-scan-ring { position:absolute; bottom:4px; right:4px; width:32px; height:32px; border-radius:5px; border:2px solid #c4956a; animation:scanPulse 2s ease-in-out infinite; z-index:3; }
+
+  /* SECTIONS */
+  .al-section { padding:70px 20px; }
+  .al-tag { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:#c4956a; margin-bottom:10px; }
+  .al-section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(28px,5vw,42px); font-weight:600; margin-bottom:12px; line-height:1.2; }
+  .al-section-sub { font-size:13px; color:var(--warm); line-height:1.8; margin-bottom:40px; }
+
+  /* FEATURES */
+  .al-features { background:var(--cream); }
+  .al-features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .al-feature-card { padding:18px; background:white; border-radius:6px; border:1px solid var(--border); transition:all 0.2s; }
+  .al-feature-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.07); }
+  .al-feature-icon { font-size:24px; margin-bottom:8px; }
+  .al-feature-title { font-size:13px; font-weight:600; margin-bottom:4px; }
+  .al-feature-desc { font-size:11px; color:var(--warm); line-height:1.6; }
+
+  /* HOW */
+  .al-how { background:white; }
+  .al-steps { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-top:32px; }
+  .al-step { text-align:center; }
+  .al-step-num { width:44px; height:44px; border-radius:50%; background:var(--ink); color:white; display:flex; align-items:center; justify-content:center; font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:600; margin:0 auto 10px; }
+  .al-step-title { font-size:13px; font-weight:600; margin-bottom:4px; }
+  .al-step-desc { font-size:11px; color:var(--warm); line-height:1.6; }
+
+  /* THEMES */
+  .al-themes { background:var(--cream); }
+  .al-themes-grid { display:flex; gap:8px; overflow-x:auto; padding:4px 0 16px; margin-top:32px; scroll-snap-type:x mandatory; }
+  .al-themes-grid::-webkit-scrollbar { display:none; }
+  .al-theme-book { width:72px; height:120px; border-radius:2px 6px 6px 2px; flex-shrink:0; scroll-snap-align:center; position:relative; transition:transform 0.2s; box-shadow:3px 5px 15px rgba(0,0,0,0.15); cursor:pointer; }
+  .al-theme-book:hover { transform:translateY(-6px); }
+  .al-theme-spine { position:absolute; left:0; top:0; bottom:0; width:8px; background:rgba(0,0,0,0.2); border-radius:2px 0 0 2px; }
+  .al-theme-content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+  .al-theme-name { font-size:7px; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.9); writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; }
+  .al-theme-pages { font-size:6px; color:rgba(255,255,255,0.4); }
+
+  /* PRICING */
+  .al-pricing { background:white; }
+  .al-pricing-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:32px; }
+  .al-pricing-card { padding:20px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
+  .al-pricing-featured { background:var(--ink); color:white; border-color:var(--ink); }
+  .al-pricing-badge { display:inline-block; padding:2px 8px; background:#c4956a; border-radius:10px; font-size:9px; color:white; align-self:flex-start; }
+  .al-pricing-name { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+  .al-pricing-price { font-family:'Cormorant Garamond',serif; font-size:36px; font-weight:600; line-height:1; }
+  .al-pricing-price span { font-size:14px; font-family:'Jost',sans-serif; font-weight:400; }
+  .al-pricing-period { font-size:10px; color:var(--warm); }
+  .al-pricing-featured .al-pricing-period { color:rgba(255,255,255,0.4); }
+  .al-pricing-feature { font-size:11px; color:var(--warm); }
+  .al-pricing-featured .al-pricing-feature { color:rgba(255,255,255,0.7); }
+  .al-pricing-feature::before { content:"✓ "; color:#c4956a; font-weight:700; }
+  .al-pricing-btn { width:100%; padding:11px; border-radius:4px; font-family:'Jost',sans-serif; font-size:13px; font-weight:500; cursor:pointer; border:none; margin-top:8px; transition:all 0.2s; }
+  .al-pricing-outline { background:none; border:1px solid var(--border); color:var(--ink); }
+  .al-pricing-solid { background:#c4956a; color:white; }
+  .al-pricing-note { font-size:11px; color:var(--warm); margin-top:12px; }
+
+  /* FAQ */
+  .al-faq { background:var(--cream); }
+  .al-faq-list { display:flex; flex-direction:column; margin-top:24px; }
+  .al-faq-item { border-bottom:1px solid var(--border); padding:16px 0; cursor:pointer; }
+  .al-faq-q { font-size:14px; font-weight:500; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .al-faq-arrow { color:#c4956a; font-size:16px; flex-shrink:0; }
+  .al-faq-a { font-size:12px; color:var(--warm); line-height:1.8; margin-top:10px; }
+
+  /* CTA */
+  .al-cta { padding:70px 20px; position:relative; overflow:hidden; text-align:center; }
+  .al-cta-bg { position:absolute; inset:0; background:linear-gradient(135deg,#1c1410 0%,#3d2010 100%); }
+  .al-cta-content { position:relative; z-index:1; }
+  .al-cta-title { font-family:'Cormorant Garamond',serif; font-size:clamp(28px,6vw,48px); font-weight:600; color:white; margin-bottom:12px; }
+  .al-cta-sub { font-size:14px; color:rgba(255,255,255,0.55); margin-bottom:24px; }
+
+  /* FOOTER */
+  .al-footer { background:var(--ink); color:rgba(255,255,255,0.4); padding:28px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  .al-footer-logo { font-family:'Cormorant Garamond',serif; font-size:18px; color:#c4956a; letter-spacing:3px; }
+  .al-footer-links { display:flex; gap:16px; }
+  .al-footer-links a { font-size:11px; color:rgba(255,255,255,0.3); text-decoration:none; }
+  .al-footer-copy { font-size:10px; }
 
   /* ─── LANDING HOME ──────────────────────────────────── */
   .landing-home {
