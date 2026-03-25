@@ -1448,20 +1448,10 @@ export default function App() {
             <img src={`${API}${activePage.image_url}`} alt="sayfa" className="detail-image" />
           </div>
         )}
-        {/* Vektörel şablon — OCR el yazısı verisiyle dolu hali */}
-        <div className="detail-template">
-          <PageTemplate
-            type={tplType}
-            data={mapHaftalikData(tplType, activePage.template_data)}
-            empty={activePage.is_empty}
-            themeColor={current?.theme_color}
-          />
-        </div>
-
-        {/* El yazısı OCR — sadece fotoğraflanmışsa, sadece kalemle yazılanlar */}
-        {!activePage.is_empty && (
+        {/* OCR text — düzenlenebilir */}
+        {!activePage.is_empty && activePage.ocr_text && (
           <div className="detail-ocr">
-            <div className="detail-ocr-label">✏️ El Yazısı</div>
+            <div className="detail-ocr-label">✏️ Notlar</div>
             <OcrTextEditor
               tplType={tplType}
               data={editData || activePage.template_data}
