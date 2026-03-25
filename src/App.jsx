@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 
@@ -1163,6 +1163,8 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
   const [filterMode, setFilterMode] = useState("all"); // all | filled | empty | bookmarked
+  const [flipDir, setFlipDir] = useState(null); // "left" | "right"
+  const [isFlipping, setIsFlipping] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -1476,15 +1478,32 @@ export default function App() {
     })();
 
     const curIdx = allPagesForDetail.findIndex(p => p.page_no === activePage.page_no);
+
+    // Swipe desteği
+    const touchStartX = useRef(0);
+    const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      if (Math.abs(dx) > 50) {
+        if (dx < 0) goTo(curIdx + 1, "right");
+        else goTo(curIdx - 1, "left");
+      }
+    };
     const tplType = activePage.template_data?.design_id
       || activePage.template?.design_id
       || (activePage.template_type !== "multi" && activePage.template_type !== "notes" ? activePage.template_type : null)
       || "notes";
     const bookmarked = isBookmarked(activePage.page_no);
 
-    const goTo = (idx) => {
-      if (idx >= 0 && idx < allPagesForDetail.length) {
-        setActivePage(allPagesForDetail[idx]);
+    const goTo = (idx, dir) => {
+      if (idx >= 0 && idx < allPagesForDetail.length && !isFlipping) {
+        setFlipDir(dir || (idx > curIdx ? "right" : "left"));
+        setIsFlipping(true);
+        setTimeout(() => {
+          setActivePage(allPagesForDetail[idx]);
+          setIsFlipping(false);
+          setFlipDir(null);
+        }, 400);
       }
     };
 
@@ -1513,7 +1532,8 @@ export default function App() {
         </div>
 
         {/* Sayfa içeriği */}
-        <div className="df-content">
+        <div className={`df-content ${isFlipping ? `flip-anim-${flipDir}` : ""}`}
+          onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {activePage.image_url ? (
             <div className="df-photo-wrap">
               <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
@@ -1548,10 +1568,10 @@ export default function App() {
 
         {/* Sayfa çevirme okları */}
         {curIdx > 0 && (
-          <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1)}>‹</button>
+          <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1, "left")}>‹</button>
         )}
         {curIdx < allPagesForDetail.length - 1 && (
-          <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1)}>›</button>
+          <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1, "right")}>›</button>
         )}
 
         {/* Alt thumbnail şeridi */}
@@ -1563,7 +1583,7 @@ export default function App() {
               <div
                 key={p.page_no}
                 className={`df-thumb ${isActive ? "active" : ""} ${!p.is_empty ? "filled" : ""}`}
-                onClick={() => setActivePage(p)}
+                onClick={() => goTo(i, i > curIdx ? "right" : "left")}
               >
                 {!p.is_empty && p.image_url ? (
                   <img src={`${API}${p.image_url}`} alt="" className="df-thumb-img" />
@@ -2772,6 +2792,59 @@ const styles = `
     position: absolute;
     top: 1px; left: 2px;
     font-size: 8px;
+  }
+
+  /* ─── SAYFA ÇEVİRME ANİMASYONU ──────────────────── */
+  .df-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 12px 8px;
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  /* Sağa çevirme (ileri sayfa) */
+  @keyframes flipRight {
+    0%   { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+    40%  { transform: perspective(1200px) rotateY(-90deg) scaleX(0.8); opacity: 0.3; }
+    41%  { transform: perspective(1200px) rotateY(90deg) scaleX(0.8); opacity: 0.3; }
+    100% { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+  }
+
+  /* Sola çevirme (geri sayfa) */
+  @keyframes flipLeft {
+    0%   { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+    40%  { transform: perspective(1200px) rotateY(90deg) scaleX(0.8); opacity: 0.3; }
+    41%  { transform: perspective(1200px) rotateY(-90deg) scaleX(0.8); opacity: 0.3; }
+    100% { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+  }
+
+  .flip-anim-right { animation: flipRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+  .flip-anim-left  { animation: flipLeft  0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+  /* Sayfa kenarı gölgesi animasyon sırasında */
+  .flip-anim-right::after,
+  .flip-anim-left::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.08) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.08) 100%);
+    pointer-events: none;
+    opacity: 0;
+    animation: shadowFade 0.4s ease forwards;
+  }
+  @keyframes shadowFade {
+    0%, 100% { opacity: 0; }
+    40%, 60%  { opacity: 1; }
+  }
+
+  /* Thumbnail aktif geçiş */
+  .df-thumb { transition: all 0.15s ease; }
+  .df-thumb.active { animation: thumbPulse 0.3s ease; }
+  @keyframes thumbPulse {
+    0%   { transform: translateY(0) scale(1); }
+    50%  { transform: translateY(-4px) scale(1.05); }
+    100% { transform: translateY(-2px) scale(1); }
   }
 
   .region-block { border: 1px solid var(--border); border-radius: 4px; padding: 4px; background: var(--soft); }
