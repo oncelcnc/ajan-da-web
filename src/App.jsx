@@ -2622,8 +2622,19 @@ const styles = `
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    max-height: 55vh;
   }
-  .df-photo { width: 100%; display: block; }
+  .df-photo {
+    max-width: 100%;
+    max-height: 55vh;
+    width: auto;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    border-radius: 6px;
+  }
 
   .df-empty-page {
     background: white;
