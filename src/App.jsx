@@ -1860,36 +1860,32 @@ export default function App() {
             <label>Ajanda Seri No</label>
             <input className="auth-input" placeholder="Kapak QR'ından okutun veya yazın"
               value={regSerialNo} onChange={e => setRegSerialNo(e.target.value)} />
-            <div className="auth-hint">Kapak QR'ını okutmak için:
+            <div className="auth-hint">
               <button className="auth-qr-btn" onClick={async () => {
-                if (isNative) {
-                  const qr = await scanQR();
-                  if (qr) {
-                    const m = qr.match(/AJANDA-(\w+)-SN(\w+)/i);
-                    if (m) { setRegTheme(m[1]); setRegSerialNo(m[2]); }
-                    else setRegSerialNo(qr);
-                  }
-                } else {
-                  const blob = await takePhoto();
-                  if (blob) {
+                try {
+                  if (isNative) {
+                    const qr = await scanQR();
+                    if (qr) {
+                      const m = qr.match(/AJANDA-([A-Z0-9]+)-SN([A-Z0-9]+)/i);
+                      if (m) { setRegTheme(m[1].toUpperCase()); setRegSerialNo(m[2]); }
+                      else setRegSerialNo(qr);
+                    }
+                  } else {
+                    const blob = await takePhoto();
+                    if (!blob) return;
                     const form = new FormData();
                     form.append("file", blob, "cover.jpg");
                     const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
                     const d = await res.json();
                     if (d.serial_no) { setRegSerialNo(d.serial_no); setRegTheme(d.theme_id || "FERDI"); }
+                    else if (d.detail) setError(d.detail);
                   }
-                }
-              }}>📷 QR Okut</button>
+                } catch(e) { setError("QR okunamadı"); }
+              }}>📷 Kapak QR'ını Okut</button>
+              {regSerialNo && <span style={{color:"#c4956a", fontSize:11}}>✓ {regSerialNo} {regTheme && `(${regTheme})`}</span>}
             </div>
           </div>
-          <div className="auth-field">
-            <label>Tema</label>
-            <select className="auth-input" value={regTheme} onChange={e => setRegTheme(e.target.value)}>
-              {["FERDI","MANIFEST","GUNLUK","TAKIP","MINI","CICIKUS","NOKTA"].map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+
 
           {error && <div className="error-msg">{error}</div>}
           <button className="auth-btn" onClick={handleRegister} disabled={loading}>
@@ -2766,7 +2762,7 @@ export default function App() {
   if (step === "activate") {
     return (
       <div className="screen activate-screen">
-        <button className="back-btn" onClick={() => setStep("home")}>← Geri</button>
+        <button className="back-btn" onClick={() => { setStep("home"); setAuthMode("landing"); }}>← Geri</button>
         <div className="activate-icon">📒</div>
         <h2>Ajanda Aktive Et</h2>
         <p>Kapak QR'ını okutarak ajandanı sisteme ekle</p>
@@ -2791,7 +2787,7 @@ export default function App() {
           <a href="#ozellikler">Özellikler</a>
           <a href="#temalar">Temalar</a>
           <a href="#fiyatlar">Fiyatlar</a>
-          <button className="al-nav-cta" onClick={() => setStep("activate")}>Uygulamayı Aç →</button>
+          <button className="al-nav-cta" onClick={() => setAuthMode("login")}>Giriş Yap →</button>
         </div>
       </nav>
 
@@ -2923,7 +2919,7 @@ export default function App() {
             {["1 ajanda","Fotoğraf yükleme","OCR metin okuma","Temel arama","Flip book arayüzü"].map(f => (
               <div key={f} className="al-pricing-feature">✓ {f}</div>
             ))}
-            <button className="al-pricing-btn al-pricing-outline" onClick={() => setStep("activate")}>Başla →</button>
+            <button className="al-pricing-btn al-pricing-outline" onClick={() => setAuthMode("register")}>Başla →</button>
           </div>
           <div className="al-pricing-card al-pricing-featured">
             <div className="al-pricing-badge">En Popüler</div>
@@ -2933,7 +2929,7 @@ export default function App() {
             {["Sınırsız ajanda","AI özet & analiz","PDF & JSON yedekleme","Gelişmiş istatistikler","Arkadaş sistemi"].map(f => (
               <div key={f} className="al-pricing-feature">✓ {f}</div>
             ))}
-            <button className="al-pricing-btn al-pricing-solid" onClick={() => setStep("activate")}>Premium'a Geç →</button>
+            <button className="al-pricing-btn al-pricing-solid" onClick={() => setAuthMode("register")}>Premium'a Geç →</button>
           </div>
         </div>
         <p className="al-pricing-note">💳 Havale ile ödeme · 7 gün iade garantisi</p>
@@ -2961,7 +2957,7 @@ export default function App() {
         <div className="al-cta-content">
           <h2 className="al-cta-title">Ajandanı dijitalleştir</h2>
           <p className="al-cta-sub">Ücretsiz başla, istediğin zaman premium'a geç.</p>
-          <button className="al-btn-primary" onClick={() => setStep("activate")}>Hemen Başla →</button>
+          <button className="al-btn-primary" onClick={() => setAuthMode("register")}>Hemen Başla →</button>
         </div>
       </section>
 
