@@ -4663,7 +4663,7 @@ const styles = `
     border: 1px solid #f0d9b5;
     line-height: 1.5;
   }
-  .havale-form { display: flex; flex-direction: column; gap: 4px; }
+  .havale-form { display: flex; flex-direction: column; gap: 4px; color:#000 }
   .havale-form-label { font-size: 11px; font-weight: 600; color: var(--warm); }
   .havale-input {
     padding: 10px 12px;
