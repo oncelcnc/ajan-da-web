@@ -1299,9 +1299,46 @@ export default function App() {
   };
 
   // Push Bildirim
-  const enablePushNotifications = async () => {
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      alert("Tarayıcınız bildirimleri desteklemiyor");
+ const enablePushNotifications = async () => {
+    setLoading(true);
+    try {
+      if (isNative) {
+        const { LocalNotifications } = await import("@capacitor/local-notifications");
+        const perm = await LocalNotifications.requestPermissions();
+        if (perm.display !== "granted") {
+          alert("Bildirim izni reddedildi");
+          setLoading(false);
+          return;
+        }
+        await LocalNotifications.schedule({
+          notifications: [{
+            title: "AJAN-DA 📓",
+            body: "Günlük hatırlatıcı aktif!",
+            id: 1,
+            schedule: { at: new Date(Date.now() + 2000) },
+          }, {
+            title: "AJAN-DA 📓",
+            body: "Bugün ajandanı güncellemeyi unutma!",
+            id: 2,
+            schedule: { on: { hour: 20, minute: 0 }, allowWhileIdle: true },
+          }]
+        });
+        setPushEnabled(true);
+        alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
+      } else {
+        if (!("Notification" in window)) {
+          alert("Tarayıcınız bildirimleri desteklemiyor");
+          setLoading(false);
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
+        new Notification("AJAN-DA 📓", { body: "Bildirimler aktif!" });
+        setPushEnabled(true);
+      }
+    } catch(e) { alert("Hata: " + e.message); }
+    setLoading(false);
+  };
       return;
     }
     const permission = await Notification.requestPermission();
