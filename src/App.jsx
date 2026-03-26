@@ -1219,6 +1219,17 @@ export default function App() {
   const [inviteCode, setInviteCode] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
 const [pushEnabled, setPushEnabled] = useState(() => localStorage.getItem("push_enabled") === "1");
+const [notifHour, setNotifHour] = useState(20);
+const [notifMinute, setNotifMinute] = useState(0);
+const [showProfile, setShowProfile] = useState(false);
+const [profileData, setProfileData] = useState(null);
+const [newUsername, setNewUsername] = useState("");
+const [newPassword, setNewPassword] = useState("");
+const [oldPassword, setOldPassword] = useState("");
+const [profileAvatar, setProfileAvatar] = useState("📓");
+const [searchDateFrom, setSearchDateFrom] = useState("");
+const [searchDateTo, setSearchDateTo] = useState("");
+const [searchType, setSearchType] = useState("");
 const [stripeLoading, setStripeLoading] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
@@ -1541,7 +1552,87 @@ const [stripeLoading, setStripeLoading] = useState(false);
     } catch { alert("Talep gönderilemedi"); }
     setStripeLoading(false);
   };
+// Profil yükle
+const loadProfile = async () => {
+  if (!loggedUsername) return;
+  try {
+    const r = await fetch(`${API}/user/profile/${loggedUsername}`);
+    const d = await r.json();
+    setProfileData(d);
+    if (d.avatar) setProfileAvatar(d.avatar);
+  } catch {}
+};
 
+// Profil güncelle
+const updateProfile = async () => {
+  if (!oldPassword) { alert("Mevcut şifrenizi girin"); return; }
+  try {
+    const res = await fetch(`${API}/user/update/${loggedUsername}`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_username: newUsername || undefined,
+        new_password: newPassword || undefined,
+        avatar: profileAvatar
+      })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.detail || "Hata"); return; }
+    if (newUsername) {
+      localStorage.setItem("ajan_username", newUsername);
+      setLoggedUsername(newUsername);
+    }
+    alert("Profil güncellendi!");
+    setShowProfile(false);
+    setOldPassword(""); setNewPassword(""); setNewUsername("");
+  } catch { alert("Hata"); }
+};
+
+// Bildirim zamanı kaydet
+const saveNotifTime = async (h, m) => {
+  setNotifHour(h); setNotifMinute(m);
+  if (!current) return;
+  try {
+    await fetch(`${API}/user/notification_time/${current.serial_no}`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ hour: h, minute: m })
+    });
+    // Mevcut bildirimi iptal et, yenisini ayarla
+    if (isNative && pushEnabled) {
+      const { LocalNotifications } = await import("@capacitor/local-notifications");
+      await LocalNotifications.cancel({ notifications: [{ id: 2 }] });
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: "AJAN-DA 📓",
+          body: "Bugün ajandanı güncellemeyi unutma! 📝",
+          id: 2,
+          schedule: {
+            at: new Date(new Date().setHours(h, m, 0, 0)),
+            every: "day",
+            allowWhileIdle: true,
+          },
+        }]
+      });
+    }
+  } catch {}
+};
+
+// Gelişmiş arama
+const advancedSearch = async () => {
+  if (!current) return;
+  try {
+    const params = new URLSearchParams();
+    if (searchQuery) params.append("q", searchQuery);
+    if (searchType) params.append("template_type", searchType);
+    if (searchDateFrom) params.append("date_from", searchDateFrom);
+    if (searchDateTo) params.append("date_to", searchDateTo);
+    const r = await fetch(`${API}/search/${current.serial_no}?${params}`);
+    const d = await r.json();
+    setSearchResults(d.results || []);
+  } catch {}
+};
   const loadYearlyReport = async (sno) => {
     try {
       const r = await fetch(`${API}/yearly_report/${sno}`);
@@ -2165,7 +2256,46 @@ const [stripeLoading, setStripeLoading] = useState(false);
       </div>
     );
   }
-
+// Profil modal
+if (showProfile) {
+  const AVATARS = ["📓","📚","✏️","🎯","🌟","💡","🔥","🎨","🌸","🦋","🎪","🏆"];
+  return (
+    <div className="overlay-screen" style={{padding:"20px"}} onClick={() => setShowProfile(false)}>
+      <div className="havale-modal" onClick={e => e.stopPropagation()}>
+        <div className="havale-title">👤 Profil</div>
+        {profileData && (
+          <div style={{textAlign:"center", padding:"8px 0"}}>
+            <div style={{fontSize:48}}>{profileAvatar}</div>
+            <div style={{color:"var(--accent)", fontSize:16, fontWeight:600}}>@{profileData.username}</div>
+            <div style={{fontSize:11, color:"var(--warm)", marginTop:4}}>{profileData.page_count} sayfa · {profileData.theme_id}</div>
+          </div>
+        )}
+        <div className="havale-form-label">Avatar Seç</div>
+        <div style={{display:"flex", flexWrap:"wrap", gap:6}}>
+          {["📓","📚","✏️","🎯","🌟","💡","🔥","🎨","🌸","🦋","🎪","🏆"].map(a => (
+            <button key={a} onClick={() => setProfileAvatar(a)}
+              style={{fontSize:24, background: profileAvatar===a ? "var(--soft)" : "none",
+                border: profileAvatar===a ? "2px solid var(--accent)" : "2px solid transparent",
+                borderRadius:8, width:40, height:40, cursor:"pointer"}}>
+              {a}
+            </button>
+          ))}
+        </div>
+        <div className="havale-form-label">Yeni Kullanıcı Adı (opsiyonel)</div>
+        <input className="havale-input" placeholder={loggedUsername}
+          value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase())} />
+        <div className="havale-form-label">Yeni Şifre (opsiyonel)</div>
+        <input className="havale-input" type="password" placeholder="Boş bırakırsan değişmez"
+          value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+        <div className="havale-form-label">Mevcut Şifre *</div>
+        <input className="havale-input" type="password" placeholder="Doğrulama için gerekli"
+          value={oldPassword} onChange={e => setOldPassword(e.target.value)} />
+        <button className="havale-btn" onClick={updateProfile}>Güncelle</button>
+        <button className="havale-cancel" onClick={() => setShowProfile(false)}>İptal</button>
+      </div>
+    </div>
+  );
+}
   // Havale modal
   if (showHavale) {
     return (
@@ -2485,15 +2615,23 @@ const [stripeLoading, setStripeLoading] = useState(false);
             <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
               🔍
             </button>
-            {searchOpen && (
-              <input
-                className="search-input"
-                autoFocus
-                placeholder="Sayfalar içinde ara..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            )}
+          {searchOpen && (
+  <>
+    <input className="search-input" autoFocus
+      placeholder="Sayfalar içinde ara..."
+      value={searchQuery}
+      onChange={e => { setSearchQuery(e.target.value); advancedSearch(); }} />
+    <select className="search-input" style={{width:"auto", padding:"5px 8px"}}
+      value={searchType} onChange={e => { setSearchType(e.target.value); advancedSearch(); }}>
+      <option value="">Tüm tipler</option>
+      <option value="haftalik_dikey">Haftalık</option>
+      <option value="aylik_takvim">Aylık</option>
+      <option value="bas_planlayici">Günlük</option>
+      <option value="aliskanlik">Alışkanlık</option>
+      <option value="notes">Notlar</option>
+    </select>
+  </>
+)}
             {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
           </div>
           <div className="filter-tabs">
@@ -2826,18 +2964,44 @@ const [stripeLoading, setStripeLoading] = useState(false);
               </button>
             </div>
 
-            {/* Bildirimler */}
-            <div className="settings-section">
-              <div className="settings-title">Bildirimler</div>
-              <div className="settings-row">
-                <span>Günlük Hatırlatıcı</span>
-                <button className={`toggle-btn ${pushEnabled?"on":""}`}
-                  onClick={pushEnabled ? () => setPushEnabled(false) : enablePushNotifications}>
-                  <div className="toggle-knob" />
-                </button>
-              </div>
-              <div className="settings-hint">Her gün ajanda yazmadığında bildirim alırsın</div>
-            </div>
+            {/* Profil */}
+<div className="settings-section">
+  <div className="settings-title">Profil</div>
+  <div className="settings-row clickable" onClick={() => { loadProfile(); setShowProfile(true); }}>
+    <span>👤 Profili Düzenle</span>
+    <span>→</span>
+  </div>
+  {loggedUsername && (
+    <div style={{fontSize:12, color:"var(--warm)", padding:"4px 0"}}>@{loggedUsername}</div>
+  )}
+</div>
+
+{/* Bildirimler */}
+<div className="settings-section">
+  <div className="settings-title">Bildirimler</div>
+  <div className="settings-row">
+    <span>Günlük Hatırlatıcı</span>
+    <button className={`toggle-btn ${pushEnabled?"on":""}`}
+      onClick={pushEnabled ? () => setPushEnabled(false) : enablePushNotifications}>
+      <div className="toggle-knob" />
+    </button>
+  </div>
+  {pushEnabled && (
+    <div className="settings-row" style={{flexDirection:"column", alignItems:"flex-start", gap:6}}>
+      <div style={{fontSize:11, color:"var(--warm)"}}>Bildirim Saati</div>
+      <div style={{display:"flex", gap:8, alignItems:"center"}}>
+        <select style={{padding:"6px 10px", borderRadius:6, border:"1px solid var(--border)", fontFamily:"Jost,sans-serif", fontSize:13, background:"white"}}
+          value={notifHour} onChange={e => saveNotifTime(parseInt(e.target.value), notifMinute)}>
+          {Array.from({length:18}, (_,i) => i+6).map(h => (
+            <option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>
+          ))}
+        </select>
+        <span style={{fontSize:12, color:"var(--warm)"}}>her gün</span>
+      </div>
+    </div>
+  )}
+  <div className="settings-hint">Her gün ajanda yazmadığında hatırlatır</div>
+</div>
 
             {/* Ajanda */}
             <div className="settings-section">
