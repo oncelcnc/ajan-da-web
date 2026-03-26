@@ -1215,6 +1215,8 @@ export default function App() {
   const [adminTab, setAdminTab] = useState("dashboard");
   const [friendInviteUrl, setFriendInviteUrl] = useState(null);
   const [friends, setFriends] = useState([]);
+  const [friendPages, setFriendPages] = useState(null);
+
   const [showFriends, setShowFriends] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
@@ -1234,7 +1236,24 @@ const [stripeLoading, setStripeLoading] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
-
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("reset");
+  if (resetToken) {
+    const newPass = prompt("Yeni şifrenizi girin (min 4 karakter):");
+    if (newPass && newPass.length >= 4) {
+      fetch(`${API}/user/reset_password`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ token: resetToken, new_password: newPass })
+      }).then(r => r.json()).then(d => {
+        if (d.status === "ok") alert("Şifreniz güncellendi! Giriş yapabilirsiniz.");
+        else alert("Link geçersiz veya süresi dolmuş.");
+      });
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+}, []);
   // Sayfa yenilenince session'dan current varsa pages yükle
   useEffect(() => {
     if (current && pages.length === 0) {
@@ -1361,17 +1380,22 @@ const [stripeLoading, setStripeLoading] = useState(false);
     }
     setLoading(true); setError("");
     try {
-      const res = await fetch(`${API}/user/register`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          username: regUsername,
-          password: regPassword,
-          serial_no: regSerialNo,
-          theme_id: regTheme,
-          pin: regPassword.slice(0,6)
-        })
-      });
+    // Eğer zaten giriş yapılmışsa, mevcut hesaba ajanda ekle
+const endpoint = loggedUsername
+  ? `${API}/user/add_journal/${loggedUsername}`
+  : `${API}/user/register`;
+
+const res = await fetch(endpoint, {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({
+    username: regUsername || loggedUsername,
+    password: regPassword,
+    serial_no: regSerialNo,
+    theme_id: regTheme,
+    pin: regPassword.slice(0,6)
+  })
+});
       const d = await res.json();
       if (!res.ok) { setError(d.detail || "Kayıt hatası"); setLoading(false); return; }
       localStorage.setItem("ajan_username", regUsername);
@@ -1415,7 +1439,16 @@ const [stripeLoading, setStripeLoading] = useState(false);
         pin: d.pin, template: d.template, username: loginUsername
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
+      
       saveJournals(updated);
+      // Kullanıcının tüm ajandalarını yükle
+try {
+  const jr = await fetch(`${API}/user/journals/${loginUsername}?password=${loginPassword}`);
+  const jd = await jr.json();
+  if (jd.journals?.length > 0) {
+    saveJournals(jd.journals);
+  }
+} catch {}
       saveCurrent(journal);
       await loadPages(journal);
       loadStreak(journal.serial_no);
@@ -2112,6 +2145,18 @@ const advancedSearch = async () => {
           <button className="auth-switch" onClick={() => { setAuthMode("register"); setError(""); }}>
             Yeni ajanda tanımlamak ister misin?
           </button>
+          <button className="auth-switch" onClick={async () => {
+  const email = prompt("E-posta adresinizi girin:");
+  if (!email) return;
+  const res = await fetch(`${API}/user/forgot_password`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ email })
+  });
+  alert("Şifre sıfırlama linki e-postanıza gönderildi.");
+}}>
+  Şifremi Unuttum
+</button>
         </div>
       </div>
     );
@@ -2292,6 +2337,40 @@ if (showProfile) {
           value={oldPassword} onChange={e => setOldPassword(e.target.value)} />
         <button className="havale-btn" onClick={updateProfile}>Güncelle</button>
         <button className="havale-cancel" onClick={() => setShowProfile(false)}>İptal</button>
+      </div>
+    </div>
+  );
+}
+// Arkadaş sayfaları
+if (friendPages) {
+  return (
+    <div className="detail-flip-screen" style={{"--tc": "#37474f"}}>
+      <div className="df-header">
+        <button className="df-back" onClick={() => setFriendPages(null)}>←</button>
+        <div className="df-header-center">
+          <div className="df-page-title">#{friendPages.serial_no}</div>
+          <div className="df-page-meta">{friendPages.pages.length} fotoğraflanan sayfa</div>
+        </div>
+      </div>
+      <div className="df-content">
+        {friendPages.pages.map(p => (
+          <div key={p.page_no} style={{marginBottom:16}}>
+            <div style={{fontSize:11, color:"var(--warm)", marginBottom:6, fontWeight:600}}>
+              Sayfa {p.page_no} · {p.template_type?.replace(/_/g," ")}
+            </div>
+            <div className="df-photo-wrap">
+              <img src={`${API}${p.image_url}`} alt="" className="df-photo" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="df-thumbstrip">
+        {friendPages.pages.map(p => (
+          <div key={p.page_no} className="df-thumb filled">
+            <img src={`${API}${p.image_url}`} alt="" className="df-thumb-img" />
+            <div className="df-thumb-num">{p.page_no}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -2896,10 +2975,16 @@ if (showProfile) {
                   <div className="fc-meta">{f.theme_id} • {f.page_count} sayfa</div>
                 </div>
                 <button className="fc-view" onClick={async () => {
-                  const r = await fetch(`${API}/friend/pages/${f.friend_serial_no}?serial_no=${current.serial_no}&pin=${current.pin}`);
-                  const d = await r.json();
-                  alert(`${f.friend_serial_no} — ${d.pages?.length || 0} fotoğraflanan sayfa`);
-                }}>Gör</button>
+  try {
+    const r = await fetch(`${API}/friend/pages/${f.friend_serial_no}?serial_no=${current.serial_no}&pin=${current.pin}`);
+    const d = await r.json();
+    if (d.pages?.length > 0) {
+      setFriendPages({ serial_no: f.friend_serial_no, pages: d.pages });
+    } else {
+      alert("Bu arkadaş henüz sayfa eklememiş");
+    }
+  } catch { alert("Hata"); }
+}}>Gör</button>
               </div>
             ))}
           </div>
@@ -3013,7 +3098,10 @@ if (showProfile) {
     <div style={{fontSize:11, color:"var(--warm)", marginBottom:6}}>E-posta (haftalık özet için)</div>
     <EmailSaver serialNo={current.serial_no} api={API} />
   </div>
-
+<div className="settings-row clickable" onClick={() => setAuthMode("register")}>
+  <span>📒 Yeni Ajanda Ekle</span>
+  <span>+</span>
+</div>
   <div className="settings-row clickable" onClick={() => { loadStreak(current.serial_no); loadYearlyReport(current.serial_no); }}>
     <span>Verileri Yenile</span>
     <span>🔄</span>
