@@ -1311,21 +1311,27 @@ export default function App() {
           return;
         }
         await LocalNotifications.schedule({
-          notifications: [
-            {
-              title: "AJAN-DA 📓",
-              body: "Günlük hatırlatıcı aktif!",
-              id: 1,
-              schedule: { at: new Date(Date.now() + 2000) },
-            },
-            {
-              title: "AJAN-DA 📓",
-              body: "Bugün ajandanı güncellemeyi unutma!",
-              id: 2,
-              schedule: { on: { hour: 12, minute: 25 }, allowWhileIdle: true },
-            }
-          ]
-        });
+  notifications: [
+    // Test — 10 saniye sonra
+    {
+      title: "AJAN-DA 📓",
+      body: "Test bildirimi!",
+      id: 1,
+      schedule: { at: new Date(Date.now() + 10000) },
+    },
+    // Her gün 20:00
+    {
+      title: "AJAN-DA 📓",
+      body: "Bugün ajandanı güncellemeyi unutma!",
+      id: 2,
+      schedule: { 
+        at: new Date(new Date().setHours(20, 0, 0, 0)),
+        every: "day",
+        allowWhileIdle: true,
+      },
+    }
+  ]
+});
         setPushEnabled(true);
         alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
       } else {
