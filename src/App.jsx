@@ -1322,7 +1322,7 @@ export default function App() {
               title: "AJAN-DA 📓",
               body: "Bugün ajandanı güncellemeyi unutma!",
               id: 2,
-              schedule: { on: { hour: 20, minute: 0 }, allowWhileIdle: true },
+              schedule: { on: { hour: 10, minute: 25 }, allowWhileIdle: true },
             }
           ]
         });
