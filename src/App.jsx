@@ -1256,13 +1256,22 @@ export default function App() {
     setExportLoading(true);
     try {
       const url = `${API}/export/pdf/${current.serial_no}?pin=${current.pin}`;
-      const res = await fetch(url);
-      if (!res.ok) { alert("PDF oluşturulamadı"); setExportLoading(false); return; }
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `ajanda_${current.serial_no}.pdf`;
-      a.click();
+      if (isNative) {
+        // Mobilde tarayıcıda aç
+        const { Browser } = await import("@capacitor/browser").catch(() => ({ Browser: null }));
+        if (Browser) await Browser.open({ url });
+        else window.open(url, "_blank");
+      } else {
+        const res = await fetch(url);
+        if (!res.ok) { alert("PDF oluşturulamadı"); setExportLoading(false); return; }
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `ajanda_${current.serial_no}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     } catch { alert("PDF indirme hatası"); }
     setExportLoading(false);
   };
@@ -1272,12 +1281,20 @@ export default function App() {
     if (!current) return;
     try {
       const url = `${API}/export/json/${current.serial_no}?pin=${current.pin}`;
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `ajanda_${current.serial_no}_backup.json`;
-      a.click();
+      if (isNative) {
+        const { Browser } = await import("@capacitor/browser").catch(() => ({ Browser: null }));
+        if (Browser) await Browser.open({ url });
+        else window.open(url, "_blank");
+      } else {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `ajanda_${current.serial_no}_backup.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     } catch { alert("Yedekleme hatası"); }
   };
 
@@ -1568,11 +1585,27 @@ export default function App() {
   // Sayfa etiket
   const setPageLabel = async (pageNo, color, stamp) => {
     if (!current) return;
-    await fetch(`${API}/page/${current.serial_no}/${pageNo}/label`, {
-      method: "PUT",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ color, stamp })
-    });
+    try {
+      await fetch(`${API}/page/${current.serial_no}/${pageNo}/label`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ color, stamp })
+      });
+      // Local state'i hemen güncelle
+      setPages(prev => prev.map(p =>
+        p.page_no === pageNo
+          ? { ...p, label_color: color ?? p.label_color, label_stamp: stamp ?? p.label_stamp }
+          : p
+      ));
+      // activePage de güncelle
+      if (activePage?.page_no === pageNo) {
+        setActivePage(prev => ({
+          ...prev,
+          label_color: color ?? prev.label_color,
+          label_stamp: stamp ?? prev.label_stamp
+        }));
+      }
+    } catch { alert("Etiket kaydedilemedi"); }
     setLabelPickerPage(null);
   };
 
@@ -2296,7 +2329,11 @@ export default function App() {
           <button className="df-back" onClick={() => setActivePage(null)}>←</button>
           <div className="df-header-center">
             <div className="df-page-title">{activePage.template?.title || `Sayfa ${activePage.page_no}`}</div>
-            <div className="df-page-meta">{curIdx + 1} / {allPagesForDetail.length}</div>
+            <div className="df-page-meta">
+              {curIdx + 1} / {allPagesForDetail.length}
+              {activePage.label_stamp && <span style={{marginLeft:6}}>{activePage.label_stamp}</span>}
+              {activePage.label_color && <span className="df-label-dot" style={{background: activePage.label_color}} />}
+            </div>
           </div>
           <div className="df-header-actions">
             <button className={`df-action-btn ${bookmarked ? "active" : ""}`}
@@ -2476,17 +2513,21 @@ export default function App() {
               const isFilled = !pageData.is_empty && pageData.image_url;
               const bm = isBookmarked(pageData.page_no);
               const isSearchHit = searchQuery && searchResults.some(r => r.page_no === pageData.page_no);
+              const labelColor = pageData.label_color;
+              const labelStamp = pageData.label_stamp;
               return (
                 <div
                   key={pageData.page_no}
                   className={`flip-page ${isFilled ? "filled" : "empty"} ${isSearchHit ? "search-hit" : ""}`}
                   onClick={() => setActivePage(pageData)}
-                  style={{"--delay": `${idx * 0.03}s`}}
+                  style={{"--delay": `${idx * 0.03}s`, ...(labelColor ? {"--label-color": labelColor} : {})}}
                 >
+                  {labelColor && <div className="flip-page-label-bar" style={{background: labelColor}} />}
                   <div className="flip-page-margin" />
                   <div className="flip-page-inner">
                     <div className="flip-page-num">{pageData.page_no}</div>
                     {bm && <div className="flip-page-bm">🔖</div>}
+                    {labelStamp && <div className="flip-page-stamp">{labelStamp}</div>}
                     {isFilled ? (
                       <div className="flip-page-photo">
                         <img src={`${API}${pageData.image_url}`} alt="" />
@@ -4162,6 +4203,26 @@ const styles = `
     font-size: 8px;
     z-index: 2;
   }
+  .flip-page-label-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 2px 2px 0 0;
+    z-index: 3;
+  }
+  .flip-page-stamp {
+    position: absolute;
+    top: 14px; right: 4px;
+    font-size: 12px;
+    z-index: 2;
+  }
+  .df-label-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
 
   /* ─── DETAIL FLIP SCREEN ─────────────────────────── */
   .detail-flip-screen {
@@ -4727,7 +4788,7 @@ const styles = `
     border: 1px solid #f0d9b5;
     line-height: 1.5;
   }
-  .havale-form { display: flex; flex-direction: column; gap: 4px; color:#000}
+  .havale-form { display: flex; flex-direction: column; gap: 4px; }
   .havale-form-label { font-size: 11px; font-weight: 600; color: var(--warm); }
   .havale-input {
     padding: 10px 12px;
