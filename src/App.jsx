@@ -3004,17 +3004,25 @@ if (showProfile) {
 </div>
 
             {/* Ajanda */}
-            <div className="settings-section">
-              <div className="settings-title">Hesap</div>
-              <div className="settings-row clickable" onClick={() => { loadStreak(current.serial_no); loadYearlyReport(current.serial_no); }}>
-                <span>Verileri Yenile</span>
-                <span>🔄</span>
-              </div>
-              <div className="settings-row clickable" onClick={() => { saveCurrent(null); setStep("home"); setActiveTab("pages"); setAuthMode("landing"); }}>
-                <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
-                <span>↩</span>
-              </div>
-            </div>
+            {/* Hesap */}
+<div className="settings-section">
+  <div className="settings-title">Hesap</div>
+
+  {/* E-posta */}
+  <div style={{padding:"8px 0"}}>
+    <div style={{fontSize:11, color:"var(--warm)", marginBottom:6}}>E-posta (haftalık özet için)</div>
+    <EmailSaver serialNo={current.serial_no} api={API} />
+  </div>
+
+  <div className="settings-row clickable" onClick={() => { loadStreak(current.serial_no); loadYearlyReport(current.serial_no); }}>
+    <span>Verileri Yenile</span>
+    <span>🔄</span>
+  </div>
+  <div className="settings-row clickable" onClick={() => { saveCurrent(null); setStep("home"); setActiveTab("pages"); setAuthMode("landing"); }}>
+    <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
+    <span>↩</span>
+  </div>
+</div>
 
           </div>
         )}
@@ -3261,7 +3269,49 @@ if (showProfile) {
     </div>
   );
 }
+function EmailSaver({ serialNo, api }) {
+  const [email, setEmail] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  const save = async () => {
+    if (!email || !email.includes("@")) { alert("Geçerli e-posta girin"); return; }
+    setLoading(true);
+    try {
+      await fetch(`${api}/email/welcome/${serialNo}`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email })
+      });
+      setSaved(true);
+    } catch { alert("Hata"); }
+    setLoading(false);
+  };
+
+  if (saved) return (
+    <div style={{fontSize:12, color:"var(--green)"}}>✓ {email} kaydedildi</div>
+  );
+
+  return (
+    <div style={{display:"flex", gap:6}}>
+      <input
+        style={{flex:1, padding:"8px 10px", border:"1px solid var(--border)",
+          borderRadius:6, fontFamily:"Jost,sans-serif", fontSize:13, outline:"none"}}
+        placeholder="ornek@email.com"
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && save()}
+      />
+      <button
+        style={{padding:"8px 14px", background:"var(--tc,#8b2500)", color:"white",
+          border:"none", borderRadius:6, fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}
+        onClick={save} disabled={loading}>
+        {loading ? "⏳" : "Kaydet"}
+      </button>
+    </div>
+  );
+}
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
