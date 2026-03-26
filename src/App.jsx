@@ -1218,8 +1218,8 @@ export default function App() {
   const [showFriends, setShowFriends] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [stripeLoading, setStripeLoading] = useState(false);
+const [pushEnabled, setPushEnabled] = useState(() => localStorage.getItem("push_enabled") === "1");
+const [stripeLoading, setStripeLoading] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -1312,19 +1312,11 @@ export default function App() {
         }
         await LocalNotifications.schedule({
   notifications: [
-    // Test — 10 saniye sonra
     {
       title: "AJAN-DA 📓",
-      body: "Test bildirimi!",
-      id: 1,
-      schedule: { at: new Date(Date.now() + 10000) },
-    },
-    // Her gün 20:00
-    {
-      title: "AJAN-DA 📓",
-      body: "Bugün ajandanı güncellemeyi unutma!",
+      body: "Bugün ajandanı güncellemeyi unutma! 📝",
       id: 2,
-      schedule: { 
+      schedule: {
         at: new Date(new Date().setHours(20, 0, 0, 0)),
         every: "day",
         allowWhileIdle: true,
@@ -1332,8 +1324,10 @@ export default function App() {
     }
   ]
 });
-        setPushEnabled(true);
+        setPushEnabled(true); localStorage.setItem("push_enabled", "1");
         alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
+
+       
       } else {
         if (!("Notification" in window)) {
           alert("Tarayıcınız bildirimleri desteklemiyor");
@@ -1343,7 +1337,8 @@ export default function App() {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") { alert("Bildirim izni reddedildi"); setLoading(false); return; }
         new Notification("AJAN-DA 📓", { body: "Bildirimler aktif!" });
-        setPushEnabled(true);
+        setPushEnabled(true); localStorage.setItem("push_enabled", "1");
+
       }
     } catch(e) { alert("Hata: " + e.message); }
     setLoading(false);
