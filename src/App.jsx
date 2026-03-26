@@ -1233,6 +1233,9 @@ const [searchDateFrom, setSearchDateFrom] = useState("");
 const [searchDateTo, setSearchDateTo] = useState("");
 const [searchType, setSearchType] = useState("");
 const [stripeLoading, setStripeLoading] = useState(false);
+const [showAddJournal, setShowAddJournal] = useState(false);
+const [newJournalSno, setNewJournalSno] = useState("");
+const [newJournalTheme, setNewJournalTheme] = useState("");
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -2375,6 +2378,84 @@ if (friendPages) {
     </div>
   );
 }
+
+// Yeni ajanda ekle modal
+if (showAddJournal) {
+  return (
+    <div className="overlay-screen" style={{padding:"20px"}}>
+      <div className="havale-modal">
+        <div className="havale-title">📒 Yeni Ajanda Ekle</div>
+        <div className="havale-desc">Kapak QR'ını okutarak yeni ajandanı ekle</div>
+
+        <div className="havale-form-label">Ajanda Seri No</div>
+        <input className="havale-input" placeholder="QR okut veya manuel gir"
+          value={newJournalSno} onChange={e => setNewJournalSno(e.target.value)} />
+
+        <button className="auth-qr-btn" style={{alignSelf:"flex-start"}} onClick={async () => {
+          try {
+            if (isNative) {
+              const qr = await scanQR();
+              if (qr) {
+                const m = qr.match(/AJANDA-([A-Z0-9]+)-SN([A-Z0-9]+)/i);
+                if (m) { setNewJournalTheme(m[1].toUpperCase()); setNewJournalSno(m[2]); }
+              }
+            } else {
+              const blob = await takePhoto();
+              if (!blob) return;
+              const form = new FormData();
+              form.append("file", blob, "cover.jpg");
+              const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
+              const d = await res.json();
+              if (d.serial_no) { setNewJournalSno(d.serial_no); setNewJournalTheme(d.theme_id || "FERDI"); }
+            }
+          } catch(e) { alert("QR okunamadı"); }
+        }}>📷 Kapak QR'ını Okut</button>
+
+        {newJournalSno && (
+          <div style={{fontSize:12, color:"var(--accent)"}}>
+            ✓ {newJournalSno} {newJournalTheme && `(${newJournalTheme})`}
+          </div>
+        )}
+
+        <button className="havale-btn" disabled={!newJournalSno || loading} onClick={async () => {
+          if (!newJournalSno || !loggedUsername) return;
+          setLoading(true);
+          try {
+            const res = await fetch(`${API}/user/add_journal/${loggedUsername}`, {
+              method: "POST",
+              headers: {"Content-Type":"application/json"},
+              body: JSON.stringify({
+                password: current.pin,
+                serial_no: newJournalSno,
+                theme_id: newJournalTheme || "FERDI",
+                pin: current.pin
+              })
+            });
+            const d = await res.json();
+            if (!res.ok) { alert(d.detail || "Hata"); setLoading(false); return; }
+            const newJournal = {
+              serial_no: newJournalSno,
+              theme_id: d.theme_id || newJournalTheme || "FERDI",
+              theme_name: d.theme_name || newJournalTheme,
+              theme_color: d.theme_color || "#8b2500",
+              pin: current.pin,
+              template: d.template || {},
+              username: loggedUsername
+            };
+            saveJournals([...journals.filter(j => j.serial_no !== newJournalSno), newJournal]);
+            setShowAddJournal(false);
+            setNewJournalSno(""); setNewJournalTheme("");
+            alert("Ajanda eklendi! Ana sayfadan seçebilirsin.");
+          } catch { alert("Hata"); }
+          setLoading(false);
+        }}>
+          {loading ? "⏳ Ekleniyor..." : "Ajandayı Ekle →"}
+        </button>
+        <button className="havale-cancel" onClick={() => { setShowAddJournal(false); setNewJournalSno(""); }}>İptal</button>
+      </div>
+    </div>
+  );
+}
   // Havale modal
   if (showHavale) {
     return (
@@ -3098,7 +3179,7 @@ if (friendPages) {
     <div style={{fontSize:11, color:"var(--warm)", marginBottom:6}}>E-posta (haftalık özet için)</div>
     <EmailSaver serialNo={current.serial_no} api={API} />
   </div>
-<div className="settings-row clickable" onClick={() => setAuthMode("register")}>
+<div className="settings-row clickable" onClick={() => setShowAddJournal(true)}>
   <span>📒 Yeni Ajanda Ekle</span>
   <span>+</span>
 </div>
