@@ -1317,7 +1317,7 @@ const [stripeLoading, setStripeLoading] = useState(false);
       body: "Bugün ajandanı güncellemeyi unutma! 📝",
       id: 2,
       schedule: {
-        at: new Date(new Date().setHours(13, 10, 0, 0)),
+        at: new Date(new Date().setHours(13, 11, 0, 0)),
         every: "day",
         allowWhileIdle: true,
       },
