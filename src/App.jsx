@@ -1299,7 +1299,7 @@ export default function App() {
   };
 
   // Push Bildirim
- const enablePushNotifications = async () => {
+  const enablePushNotifications = async () => {
     setLoading(true);
     try {
       if (isNative) {
@@ -1311,17 +1311,20 @@ export default function App() {
           return;
         }
         await LocalNotifications.schedule({
-          notifications: [{
-            title: "AJAN-DA 📓",
-            body: "Günlük hatırlatıcı aktif!",
-            id: 1,
-            schedule: { at: new Date(Date.now() + 2000) },
-          }, {
-            title: "AJAN-DA 📓",
-            body: "Bugün ajandanı güncellemeyi unutma!",
-            id: 2,
-            schedule: { on: { hour: 20, minute: 0 }, allowWhileIdle: true },
-          }]
+          notifications: [
+            {
+              title: "AJAN-DA 📓",
+              body: "Günlük hatırlatıcı aktif!",
+              id: 1,
+              schedule: { at: new Date(Date.now() + 2000) },
+            },
+            {
+              title: "AJAN-DA 📓",
+              body: "Bugün ajandanı güncellemeyi unutma!",
+              id: 2,
+              schedule: { on: { hour: 20, minute: 0 }, allowWhileIdle: true },
+            }
+          ]
         });
         setPushEnabled(true);
         alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
@@ -1332,38 +1335,13 @@ export default function App() {
           return;
         }
         const permission = await Notification.requestPermission();
-        if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
+        if (permission !== "granted") { alert("Bildirim izni reddedildi"); setLoading(false); return; }
         new Notification("AJAN-DA 📓", { body: "Bildirimler aktif!" });
         setPushEnabled(true);
       }
     } catch(e) { alert("Hata: " + e.message); }
     setLoading(false);
   };
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") { alert("Bildirim izni reddedildi"); return; }
-
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: "BEl7ViEK3V5cBcK1e1yFJF_R7MBfvdTe8Q0H7t7oT0k5bD3y_9pR5nQ0" // VAPID public key
-      });
-      await fetch(`${API}/push/subscribe/${current.serial_no}`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ subscription: sub })
-      });
-      setPushEnabled(true);
-      alert("Bildirimler aktif! Her gün hatırlatıcı alacaksın.");
-    } catch (e) {
-      // SW veya VAPID olmadan da bildirim izni yeterli
-      setPushEnabled(true);
-      alert("Bildirim izni alındı!");
-    }
-  };
-
   // Kullanıcı adı/şifre ile kayıt
   const handleRegister = async () => {
     if (!regUsername || !regPassword || !regSerialNo) {
