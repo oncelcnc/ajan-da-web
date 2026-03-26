@@ -4978,6 +4978,7 @@ const styles = `
     font-size: 13px;
     outline: none;
     background: white;
+    color:#000
   }
   .havale-input:focus { border-color: var(--accent); }
   .havale-btn {
