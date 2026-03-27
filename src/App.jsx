@@ -2090,8 +2090,9 @@ const advancedSearch = async () => {
           </div>
           <div className="auth-field">
             <label>Ajanda Seri No</label>
-            <input className="auth-input" placeholder="Kapak QR'ından okutun veya yazın"
-              value={regSerialNo} onChange={e => setRegSerialNo(e.target.value)} />
+            <input className="auth-input" placeholder="Kapak QR'ını okutun"
+  value={regSerialNo} readOnly
+  style={{cursor:"not-allowed", opacity: regSerialNo ? 1 : 0.5}} />
             <div className="auth-hint">
               <button className="auth-qr-btn" onClick={async () => {
                 try {
@@ -2497,9 +2498,7 @@ if (showAddJournal) {
         <div className="havale-title">📒 Yeni Ajanda Ekle</div>
         <div className="havale-desc">Kapak QR'ını okutarak yeni ajandanı ekle</div>
 
-        <div className="havale-form-label">Ajanda Seri No</div>
-        <input className="havale-input" placeholder="QR okut veya manuel gir"
-          value={newJournalSno} onChange={e => setNewJournalSno(e.target.value)} />
+         
 
         <button className="auth-qr-btn" style={{alignSelf:"flex-start"}} onClick={async () => {
           try {
