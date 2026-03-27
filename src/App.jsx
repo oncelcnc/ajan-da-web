@@ -3383,7 +3383,9 @@ if (showAddJournal) {
           <a href="#fiyatlar">Fiyatlar</a>
           {current
             ? <button className="al-nav-cta" onClick={() => setStep("dashboard")}>Panele Gir →</button>
-            : <button className="al-nav-cta" onClick={() => setShowLibrary(true)}>Panele Gir →</button>
+            : loggedUsername 
+  ? <button className="al-nav-cta" onClick={() => setShowLibrary(true)}>Panele Gir →</button>
+  : <button className="al-nav-cta" onClick={() => setAuthMode("login")}>Giriş Yap →</button>
           }
         </div>
       </nav>
