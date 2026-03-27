@@ -2311,10 +2311,23 @@ if (showLibrary && journals.length > 0) {
 
       {/* Çıkış */}
       <div style={{padding:"16px 20px", borderTop:"1px solid rgba(255,255,255,0.06)"}}>
-        <button onClick={() => { saveCurrent(null); setStep("home"); setAuthMode("landing"); setShowLibrary(false); }}
-          style={{background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
-          ↩ Çıkış Yap
-        </button>
+        <div style={{display:"flex", gap:12}}>
+  <button onClick={() => { setShowLibrary(false); setAuthMode("landing"); }}
+    style={{background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
+    ← Ana Sayfa
+  </button>
+  <button onClick={() => { 
+    saveCurrent(null); 
+    setJournals([]); 
+    setLoggedUsername(""); 
+    localStorage.clear(); 
+    setShowLibrary(false); 
+    setAuthMode("landing"); 
+  }}
+    style={{background:"none", border:"none", color:"#e74c3c", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
+    Hesabımdan Çık
+  </button>
+</div>
       </div>
     </div>
   );
@@ -2886,14 +2899,8 @@ if (showAddJournal) {
               {loading ? "⏳" : "📸"}
             </button>
             <button className="jc-btn" onClick={() => {
-  if (journals.length > 1) {
-    setShowLibrary(true);
-    setStep("home");
-  } else {
-    saveCurrent(null);
-    setStep("home");
-    setAuthMode("landing");
-  }
+  saveCurrent(null);
+  setShowLibrary(true);
 }}>↩</button>
           </div>
         </div>
@@ -3328,8 +3335,8 @@ if (showAddJournal) {
     <span>Verileri Yenile</span>
     <span>🔄</span>
   </div>
-  <div className="settings-row clickable" onClick={() => { saveCurrent(null); setStep("home"); setActiveTab("pages"); setAuthMode("landing"); }}>
-    <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
+  <div className="settings-row clickable" onClick={() => { saveCurrent(null); setActiveTab("pages"); setShowLibrary(true); }}>
+  <span style={{color:"#e74c3c"}}>Çıkış Yap</span>
     <span>↩</span>
   </div>
 </div>
@@ -3376,7 +3383,7 @@ if (showAddJournal) {
           <a href="#fiyatlar">Fiyatlar</a>
           {current
             ? <button className="al-nav-cta" onClick={() => setStep("dashboard")}>Panele Gir →</button>
-            : <button className="al-nav-cta" onClick={() => setAuthMode("login")}>Giriş Yap →</button>
+            : <button className="al-nav-cta" onClick={() => setShowLibrary(true)}>Panele Gir →</button>
           }
         </div>
       </nav>
@@ -3390,26 +3397,60 @@ if (showAddJournal) {
           <h1 className="al-h1">Fiziksel ajandanı<br/><span>dijitalleştir</span></h1>
           <p className="al-p">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et.</p>
           {current ? (
-            /* Oturum açık */
-            <div className="al-btns">
-              <button className="al-btn-primary" onClick={() => setStep("dashboard")}>
-                📖 Panele Gir →
-              </button>
-              <button className="al-btn-secondary" onClick={() => { saveCurrent(null); setStep("home"); }}>
-                Çıkış Yap
-              </button>
-            </div>
-          ) : (
-            /* Oturum yok */
-            <div className="al-btns">
-              <button className="al-btn-primary" onClick={() => setAuthMode("login")}>
-                Giriş Yap →
-              </button>
-              <button className="al-btn-secondary" onClick={() => setAuthMode("register")}>
-                📒 Yeni Ajanda Tanımla
-              </button>
-            </div>
-          )}
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setStep("dashboard")}>
+      📖 Panele Gir →
+    </button>
+    <button className="al-btn-secondary" onClick={() => { saveCurrent(null); setShowLibrary(true); }}>
+      Ajandalarım
+    </button>
+  </div>
+) : loggedUsername && journals.length > 0 ? (
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setShowLibrary(true)}>
+      📚 Ajandalarıma Git →
+    </button>
+    <button className="al-btn-secondary" onClick={() => { localStorage.clear(); setLoggedUsername(""); setAuthMode("login"); }}>
+      Farklı Hesapla Giriş
+    </button>
+  </div>
+) : (
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setAuthMode("login")}>
+      Giriş Yap →
+    </button>
+    <button className="al-btn-secondary" onClick={() => setAuthMode("register")}>
+      📒 Yeni Ajanda Tanımla
+    </button>
+  </div>
+)}{current ? (
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setStep("dashboard")}>
+      📖 Panele Gir →
+    </button>
+    <button className="al-btn-secondary" onClick={() => { saveCurrent(null); setShowLibrary(true); }}>
+      Ajandalarım
+    </button>
+  </div>
+) : loggedUsername && journals.length > 0 ? (
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setShowLibrary(true)}>
+      📚 Ajandalarıma Git →
+    </button>
+    <button className="al-btn-secondary" onClick={() => { localStorage.clear(); setLoggedUsername(""); setAuthMode("login"); }}>
+      Farklı Hesapla Giriş
+    </button>
+  </div>
+) : (
+  <div className="al-btns">
+    <button className="al-btn-primary" onClick={() => setAuthMode("login")}>
+      Giriş Yap →
+    </button>
+    <button className="al-btn-secondary" onClick={() => setAuthMode("register")}>
+      📒 Yeni Ajanda Tanımla
+    </button>
+  </div>
+)}
           {!current && journals.length > 0 && (
             <div className="al-saved">
               <div className="al-saved-label">Kayıtlı ajandalarım</div>
