@@ -1221,8 +1221,8 @@ export default function App() {
   const [inviteCode, setInviteCode] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
 const [pushEnabled, setPushEnabled] = useState(() => localStorage.getItem("push_enabled") === "1");
-const [notifHour, setNotifHour] = useState(20);
-const [notifMinute, setNotifMinute] = useState(0);
+const [notifHour, setNotifHour] = useState(() => parseInt(localStorage.getItem("notif_hour") || "20"));
+const [notifMinute, setNotifMinute] = useState(() => parseInt(localStorage.getItem("notif_minute") || "0"));
 const [showProfile, setShowProfile] = useState(false);
 const [profileData, setProfileData] = useState(null);
 const [newUsername, setNewUsername] = useState("");
@@ -1628,6 +1628,8 @@ const updateProfile = async () => {
 // Bildirim zamanı kaydet
 const saveNotifTime = async (h, m) => {
   setNotifHour(h); setNotifMinute(m);
+  localStorage.setItem("notif_hour", h);
+  localStorage.setItem("notif_minute", m);
   if (!current) return;
   try {
     await fetch(`${API}/user/notification_time/${current.serial_no}`, {
