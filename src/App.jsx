@@ -1236,6 +1236,7 @@ const [stripeLoading, setStripeLoading] = useState(false);
 const [showAddJournal, setShowAddJournal] = useState(false);
 const [newJournalSno, setNewJournalSno] = useState("");
 const [newJournalTheme, setNewJournalTheme] = useState("");
+const [showLibrary, setShowLibrary] = useState(false);
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
@@ -1414,7 +1415,7 @@ const res = await fetch(endpoint, {
       saveCurrent(journal);
       await loadPages(journal);
       loadStreak(journal.serial_no);
-      setStep("dashboard");
+      setShowLibrary(true);
       setAuthMode("landing");
     } catch { setError("Bağlantı hatası"); }
     setLoading(false);
@@ -1452,6 +1453,8 @@ try {
     saveJournals(jd.journals);
   }
 } catch {}
+setShowLibrary(true);
+
       saveCurrent(journal);
       await loadPages(journal);
       loadStreak(journal.serial_no);
@@ -2196,7 +2199,103 @@ const advancedSearch = async () => {
       </div>
     );
   }
+// Kütüphane ekranı
+if (showLibrary && journals.length > 0) {
+  return (
+    <div style={{minHeight:"100vh", background:"#1c1410", display:"flex", flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{padding:"48px 24px 24px", background:"linear-gradient(180deg,#1c1410,#2d1f15)", textAlign:"center", position:"relative"}}>
+        <div style={{fontFamily:"Cormorant Garamond,serif", fontSize:40, color:"#c4956a", letterSpacing:4}}>AJAN<span style={{opacity:0.5}}>-DA</span></div>
+        <div style={{fontSize:11, letterSpacing:3, textTransform:"uppercase", color:"rgba(255,255,255,0.3)", marginTop:6}}>Ajandalarım</div>
+        {loggedUsername && <div style={{fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:4}}>@{loggedUsername}</div>}
+      </div>
 
+      {/* Raf */}
+      <div style={{flex:1, padding:"32px 20px", display:"flex", flexDirection:"column", gap:12}}>
+        {journals.map((j, idx) => (
+          <button key={j.serial_no}
+            onClick={async () => {
+              setLoading(true);
+              saveCurrent(j);
+              await loadPages(j);
+              loadStreak(j.serial_no);
+              loadPremiumStatus(j.serial_no);
+              setShowLibrary(false);
+              setStep("dashboard");
+              setLoading(false);
+            }}
+            style={{
+              display:"flex", alignItems:"center", gap:16,
+              padding:"16px 20px",
+              background:"rgba(255,255,255,0.05)",
+              border:`1px solid ${j.theme_color || "#8b2500"}40`,
+              borderLeft:`4px solid ${j.theme_color || "#8b2500"}`,
+              borderRadius:8,
+              cursor:"pointer",
+              textAlign:"left",
+              transition:"all 0.2s",
+              animation:`fadeIn 0.3s ease ${idx*0.08}s both`
+            }}>
+            {/* Kitap ikonu */}
+            <div style={{
+              width:48, height:64,
+              background: j.theme_color || "#8b2500",
+              borderRadius:"2px 6px 6px 2px",
+              flexShrink:0,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow:"3px 4px 12px rgba(0,0,0,0.3)",
+              position:"relative",
+              overflow:"hidden"
+            }}>
+              <div style={{position:"absolute", left:0, top:0, bottom:0, width:6, background:"rgba(0,0,0,0.2)"}} />
+              <span style={{fontSize:18, position:"relative", zIndex:1}}>📓</span>
+            </div>
+            {/* Bilgi */}
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"Cormorant Garamond,serif", fontSize:18, color:"white", fontWeight:600}}>
+                {j.theme_name || j.theme_id}
+              </div>
+              <div style={{fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2}}>
+                №{j.serial_no}
+              </div>
+              {j.page_count > 0 && (
+                <div style={{fontSize:11, color:j.theme_color || "#c4956a", marginTop:4}}>
+                  {j.page_count} sayfa fotoğraflandı
+                </div>
+              )}
+            </div>
+            <span style={{color:"rgba(255,255,255,0.3)", fontSize:18}}>→</span>
+          </button>
+        ))}
+
+        {/* Yeni ajanda ekle butonu */}
+        <button onClick={() => { setShowLibrary(false); setShowAddJournal(true); }}
+          style={{
+            display:"flex", alignItems:"center", gap:16,
+            padding:"16px 20px",
+            background:"rgba(255,255,255,0.03)",
+            border:"1px dashed rgba(255,255,255,0.15)",
+            borderRadius:8, cursor:"pointer", textAlign:"left",
+            marginTop:8
+          }}>
+          <div style={{width:48, height:64, background:"rgba(255,255,255,0.06)", borderRadius:"2px 6px 6px 2px",
+            display:"flex", alignItems:"center", justifyContent:"center", fontSize:24}}>
+            +
+          </div>
+          <div style={{color:"rgba(255,255,255,0.4)", fontSize:14}}>Yeni Ajanda Ekle</div>
+        </button>
+      </div>
+
+      {/* Çıkış */}
+      <div style={{padding:"16px 20px", borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+        <button onClick={() => { saveCurrent(null); setStep("home"); setAuthMode("landing"); setShowLibrary(false); }}
+          style={{background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
+          ↩ Çıkış Yap
+        </button>
+      </div>
+    </div>
+  );
+}
   // Admin paneli
   if (showAdmin) {
     return (
@@ -2765,7 +2864,16 @@ if (showAddJournal) {
             <button className="jc-btn" onClick={handleUploadPage} disabled={loading}>
               {loading ? "⏳" : "📸"}
             </button>
-            <button className="jc-btn" onClick={() => { saveCurrent(null); setStep("home"); setAuthMode("landing"); }}>↩</button>
+            <button className="jc-btn" onClick={() => {
+  if (journals.length > 1) {
+    setShowLibrary(true);
+    setStep("home");
+  } else {
+    saveCurrent(null);
+    setStep("home");
+    setAuthMode("landing");
+  }
+}}>↩</button>
           </div>
         </div>
 
