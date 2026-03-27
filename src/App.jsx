@@ -1377,18 +1377,33 @@ useEffect(() => {
         alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
 
        
-      } else {
-        if (!("Notification" in window)) {
-          alert("Tarayıcınız bildirimleri desteklemiyor");
-          setLoading(false);
-          return;
-        }
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") { alert("Bildirim izni reddedildi"); setLoading(false); return; }
-        new Notification("AJAN-DA 📓", { body: "Bildirimler aktif!" });
-        setPushEnabled(true); localStorage.setItem("push_enabled", "1");
+    } else {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    alert("Tarayıcınız desteklemiyor"); setLoading(false); return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
+  
+  const reg = await navigator.serviceWorker.ready;
+  const VAPID_PUBLIC = "BxxxxPublicKeyxxxx"; // buraya kendi key'ini yaz
+  
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: VAPID_PUBLIC
+  });
+  
+  // Backend'e kaydet
+  await fetch(`${API}/push/subscribe/${current.serial_no}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ subscription: subscription.toJSON() })
+  });
+  
+  setPushEnabled(true);
+  localStorage.setItem("push_enabled", "1");
+  alert("Bildirimler aktif! Sayfa kapalıyken de gelecek.");
 
-      }
+}
     } catch(e) { alert("Hata: " + e.message); }
     setLoading(false);
   };
