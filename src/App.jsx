@@ -1234,6 +1234,7 @@ const [searchDateTo, setSearchDateTo] = useState("");
 const [searchType, setSearchType] = useState("");
 const [stripeLoading, setStripeLoading] = useState(false);
 const [showAddJournal, setShowAddJournal] = useState(false);
+
 const [newJournalSno, setNewJournalSno] = useState("");
 const [newJournalTheme, setNewJournalTheme] = useState("");
  
@@ -2536,12 +2537,12 @@ if (showAddJournal) {
               }
             } else {
               const blob = await takePhoto();
-              if (!blob) return;
-              const form = new FormData();
-              form.append("file", blob, "cover.jpg");
-              const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
-              const d = await res.json();
-              if (d.serial_no) { setNewJournalSno(d.serial_no); setNewJournalTheme(d.theme_id || "FERDI"); }
+if (!blob) return;
+const form = new FormData();
+form.append("file", blob, "cover.jpg");
+const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
+const d = await res.json();
+if (d.serial_no) { setNewJournalSno(d.serial_no); setNewJournalTheme(d.theme_id || "FERDI"); }
             }
           } catch(e) { alert("QR okunamadı"); }
         }}>📷 Kapak QR'ını Okut</button>
