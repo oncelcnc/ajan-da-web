@@ -1,7 +1,103 @@
 import { useState, useEffect, useRef } from "react";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
+function BookOnShelf({ journal, idx, onSelect }) {
+  const [lifted, setLifted] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
+  const handleClick = () => {
+    setLifted(true);
+    setTimeout(() => {
+      setLeaving(true);
+      setTimeout(() => onSelect(), 350);
+    }, 400);
+  };
+
+  // Kitap yüksekliği temaya göre değişsin
+  const heights = { FERDI:130, MANIFEST:118, GUNLUK:124, TAKIP:100, MINI:90, CICIKUS:116, NOKTA:106, OGRENCI:112, IS:114, WELLNESS:104 };
+  const h = heights[journal.theme_id] || 115;
+  const w = 46 + (idx % 3) * 4; // Genişlik hafif farklı
+
+  return (
+    <div
+      onClick={handleClick}
+      style={{
+        width:w, height:h, flexShrink:0, position:"relative", cursor:"pointer",
+        transform: lifted ? `translateY(-${leaving ? 200 : 28}px) rotate(${leaving ? -8 : 0}deg)` : "translateY(0)",
+        transition: lifted
+          ? leaving ? "transform 0.35s cubic-bezier(0.4,0,1,1)" : "transform 0.3s cubic-bezier(0.2,0,0,1.4)"
+          : "transform 0.2s ease",
+        zIndex: lifted ? 10 : 1,
+      }}
+    >
+      {/* Kitap gövdesi */}
+      <div style={{
+        width:"100%", height:"100%", position:"relative",
+        background:`linear-gradient(135deg, ${journal.theme_color || "#8b2500"} 0%, ${journal.theme_color || "#8b2500"}cc 100%)`,
+        borderRadius:"2px 5px 5px 2px",
+        boxShadow: lifted
+          ? `4px 12px 30px rgba(0,0,0,0.7), -2px 0 0 rgba(0,0,0,0.3)`
+          : `2px 4px 8px rgba(0,0,0,0.5), -1px 0 0 rgba(0,0,0,0.2)`,
+        transition:"box-shadow 0.3s ease",
+        overflow:"hidden"
+      }}>
+        {/* Sırt çizgisi */}
+        <div style={{
+          position:"absolute", left:0, top:0, bottom:0, width:7,
+          background:"rgba(0,0,0,0.25)",
+          borderRight:"1px solid rgba(255,255,255,0.05)"
+        }} />
+
+        {/* Üst highlight */}
+        <div style={{
+          position:"absolute", top:0, left:7, right:0, height:2,
+          background:"rgba(255,255,255,0.15)"
+        }} />
+
+        {/* Başlık — dikey */}
+        <div style={{
+          position:"absolute", left:12, right:4, top:0, bottom:0,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          writingMode:"vertical-rl", textOrientation:"mixed",
+          transform:"rotate(180deg)",
+          fontFamily:"Cormorant Garamond,serif", fontSize:11,
+          color:"rgba(255,255,255,0.9)", letterSpacing:2,
+          fontWeight:600, textTransform:"uppercase",
+          userSelect:"none", lineHeight:1.2
+        }}>
+          {journal.theme_name || journal.theme_id}
+        </div>
+
+        {/* Seri no — alt */}
+        <div style={{
+          position:"absolute", bottom:6, left:7, right:4,
+          textAlign:"center", fontSize:8,
+          color:"rgba(255,255,255,0.35)", letterSpacing:1,
+          fontFamily:"Jost,sans-serif", userSelect:"none"
+        }}>
+          {journal.serial_no}
+        </div>
+
+        {/* Sayfa kenarı efekti */}
+        <div style={{
+          position:"absolute", right:0, top:2, bottom:2, width:3,
+          background:"linear-gradient(90deg, #e8ddd0, #f5f0ea, #e8ddd0)",
+          borderRadius:"0 4px 4px 0"
+        }} />
+      </div>
+
+      {/* Hover gölgesi (yerden) */}
+      {lifted && (
+        <div style={{
+          position:"absolute", bottom:-8, left:"50%", transform:"translateX(-50%)",
+          width:"70%", height:6,
+          background:"radial-gradient(ellipse, rgba(0,0,0,0.4), transparent)",
+          transition:"opacity 0.3s"
+        }} />
+      )}
+    </div>
+  );
+}
 const API = "https://ajan-da-backend-production.up.railway.app";
 
 // ─── YARDIMCI ────────────────────────────────────────────────────────
@@ -2227,109 +2323,127 @@ const advancedSearch = async () => {
 // Kütüphane ekranı
 if (showLibrary) {
   return (
-    <div style={{minHeight:"100vh", background:"#1c1410", display:"flex", flexDirection:"column"}}>
-      {/* Header */}
-      <div style={{padding:"48px 24px 24px", background:"linear-gradient(180deg,#1c1410,#2d1f15)", textAlign:"center", position:"relative"}}>
-        <div style={{fontFamily:"Cormorant Garamond,serif", fontSize:40, color:"#c4956a", letterSpacing:4}}>AJAN<span style={{opacity:0.5}}>-DA</span></div>
-        <div style={{fontSize:11, letterSpacing:3, textTransform:"uppercase", color:"rgba(255,255,255,0.3)", marginTop:6}}>Ajandalarım</div>
-        {loggedUsername && <div style={{fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:4}}>@{loggedUsername}</div>}
+    <div style={{
+      minHeight:"100vh",
+      background:"linear-gradient(180deg, #1a0f08 0%, #2d1a0e 40%, #3d2410 100%)",
+      display:"flex", flexDirection:"column", overflow:"hidden", position:"relative"
+    }}>
+      {/* Ambient ışık */}
+      <div style={{
+        position:"absolute", top:0, left:"50%", transform:"translateX(-50%)",
+        width:300, height:300, borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(196,149,106,0.15) 0%, transparent 70%)",
+        pointerEvents:"none"
+      }} />
+
+      {/* Başlık */}
+      <div style={{padding:"52px 24px 16px", textAlign:"center", position:"relative", zIndex:2}}>
+        <div style={{fontFamily:"Cormorant Garamond,serif", fontSize:38, color:"#c4956a", letterSpacing:6}}>
+          AJAN<span style={{opacity:0.4}}>-DA</span>
+        </div>
+        <div style={{fontSize:10, letterSpacing:4, textTransform:"uppercase", color:"rgba(255,255,255,0.25)", marginTop:4}}>
+          Ajandalarım
+        </div>
+        {loggedUsername && (
+          <div style={{fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:4}}>@{loggedUsername}</div>
+        )}
       </div>
 
-      {/* Raf */}
-      <div style={{flex:1, padding:"32px 20px", display:"flex", flexDirection:"column", gap:12}}>
-        {journals.map((j, idx) => (
-          <button key={j.serial_no}
-            onClick={async () => {
-              setLoading(true);
-              saveCurrent(j);
-              await loadPages(j);
-              loadStreak(j.serial_no);
-              loadPremiumStatus(j.serial_no);
-              setShowLibrary(false);
-              setStep("dashboard");
-              setLoading(false);
-            }}
-            style={{
-              display:"flex", alignItems:"center", gap:16,
-              padding:"16px 20px",
-              background:"rgba(255,255,255,0.05)",
-              border:`1px solid ${j.theme_color || "#8b2500"}40`,
-              borderLeft:`4px solid ${j.theme_color || "#8b2500"}`,
-              borderRadius:8,
-              cursor:"pointer",
-              textAlign:"left",
-              transition:"all 0.2s",
-              animation:`fadeIn 0.3s ease ${idx*0.08}s both`
-            }}>
-            {/* Kitap ikonu */}
-            <div style={{
-              width:48, height:64,
-              background: j.theme_color || "#8b2500",
-              borderRadius:"2px 6px 6px 2px",
-              flexShrink:0,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              boxShadow:"3px 4px 12px rgba(0,0,0,0.3)",
-              position:"relative",
-              overflow:"hidden"
-            }}>
-              <div style={{position:"absolute", left:0, top:0, bottom:0, width:6, background:"rgba(0,0,0,0.2)"}} />
-              <span style={{fontSize:18, position:"relative", zIndex:1}}>📓</span>
-            </div>
-            {/* Bilgi */}
-            <div style={{flex:1}}>
-              <div style={{fontFamily:"Cormorant Garamond,serif", fontSize:18, color:"white", fontWeight:600}}>
-                {j.theme_name || j.theme_id}
-              </div>
-              <div style={{fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2}}>
-                №{j.serial_no}
-              </div>
-              {j.page_count > 0 && (
-                <div style={{fontSize:11, color:j.theme_color || "#c4956a", marginTop:4}}>
-                  {j.page_count} sayfa fotoğraflandı
-                </div>
-              )}
-            </div>
-            <span style={{color:"rgba(255,255,255,0.3)", fontSize:18}}>→</span>
-          </button>
-        ))}
-
-        {/* Yeni ajanda ekle butonu */}
-        <button onClick={() => { setShowLibrary(false); setShowAddJournal(true); }}
-          style={{
-            display:"flex", alignItems:"center", gap:16,
-            padding:"16px 20px",
-            background:"rgba(255,255,255,0.03)",
-            border:"1px dashed rgba(255,255,255,0.15)",
-            borderRadius:8, cursor:"pointer", textAlign:"left",
-            marginTop:8
+      {/* RAF */}
+      <div style={{flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 16px 20px", position:"relative", zIndex:2}}>
+        
+        {/* Raf tahtası + Kitaplar */}
+        <div style={{position:"relative", marginBottom:32}}>
+          
+          {/* Kitaplar */}
+          <div style={{
+            display:"flex", alignItems:"flex-end", gap:8,
+            padding:"0 12px 0", minHeight:140,
+            justifyContent: journals.length < 4 ? "center" : "flex-start",
+            overflowX:"auto", paddingBottom:12
           }}>
-          <div style={{width:48, height:64, background:"rgba(255,255,255,0.06)", borderRadius:"2px 6px 6px 2px",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:24}}>
-            +
+            {journals.map((j, idx) => (
+              <BookOnShelf key={j.serial_no} journal={j} idx={idx}
+                onSelect={async () => {
+                  setLoading(true);
+                  saveCurrent(j);
+                  await loadPages(j);
+                  loadStreak(j.serial_no);
+                  loadPremiumStatus(j.serial_no);
+                  setShowLibrary(false);
+                  setStep("dashboard");
+                  setLoading(false);
+                }}
+              />
+            ))}
+
+            {/* Yeni ekle butonu — boş yer */}
+            <button onClick={() => { setShowLibrary(false); setShowAddJournal(true); }}
+              style={{
+                width:52, height:120, flexShrink:0,
+                background:"rgba(255,255,255,0.04)",
+                border:"1.5px dashed rgba(255,255,255,0.15)",
+                borderRadius:"3px 6px 6px 3px",
+                cursor:"pointer", display:"flex", flexDirection:"column",
+                alignItems:"center", justifyContent:"center", gap:4,
+                color:"rgba(255,255,255,0.25)", fontSize:11,
+                fontFamily:"Jost,sans-serif", transition:"all 0.2s",
+                alignSelf:"flex-end", marginBottom:0
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; }}
+            >
+              <span style={{fontSize:18}}>+</span>
+              <span style={{fontSize:9}}>Ekle</span>
+            </button>
           </div>
-          <div style={{color:"rgba(255,255,255,0.4)", fontSize:14}}>Yeni Ajanda Ekle</div>
-        </button>
+
+          {/* Raf tahtası */}
+          <div style={{
+            height:14, background:"linear-gradient(180deg, #8B5E3C 0%, #6B4423 40%, #5a3518 100%)",
+            borderRadius:3, boxShadow:"0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+            position:"relative"
+          }}>
+            <div style={{
+              position:"absolute", top:0, left:0, right:0, height:3,
+              background:"rgba(255,255,255,0.08)", borderRadius:"3px 3px 0 0"
+            }} />
+          </div>
+
+          {/* Raf gölgesi */}
+          <div style={{
+            height:8, background:"linear-gradient(180deg, rgba(0,0,0,0.4), transparent)",
+            borderRadius:"0 0 4px 4px"
+          }} />
+        </div>
+
+        {/* Dekoratif ikinci raf (boş) */}
+        <div style={{opacity:0.3}}>
+          <div style={{height:40, display:"flex", alignItems:"flex-end", padding:"0 20px", gap:6}}>
+            {[40,55,48,62,44,50].map((h,i) => (
+              <div key={i} style={{width:14, height:h, background:"rgba(255,255,255,0.06)", borderRadius:"2px 4px 0 0"}} />
+            ))}
+          </div>
+          <div style={{height:10, background:"linear-gradient(180deg, #6B4423, #5a3518)", borderRadius:2, boxShadow:"0 3px 8px rgba(0,0,0,0.4)"}} />
+        </div>
       </div>
 
-      {/* Çıkış */}
-      <div style={{padding:"16px 20px", borderTop:"1px solid rgba(255,255,255,0.06)"}}>
-        <div style={{display:"flex", gap:12}}>
-  <button onClick={() => { setShowLibrary(false); setAuthMode("landing"); }}
-    style={{background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
-    ← Ana Sayfa
-  </button>
-  <button onClick={() => { 
-    saveCurrent(null); 
-    setJournals([]); 
-    setLoggedUsername(""); 
-    localStorage.clear(); 
-    setShowLibrary(false); 
-    setAuthMode("landing"); 
-  }}
-    style={{background:"none", border:"none", color:"#e74c3c", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer"}}>
-    Hesabımdan Çık
-  </button>
-</div>
+      {/* Alt butonlar */}
+      <div style={{
+        padding:"16px 20px 32px", borderTop:"1px solid rgba(255,255,255,0.05)",
+        display:"flex", justifyContent:"space-between", position:"relative", zIndex:2
+      }}>
+        <button onClick={() => { setShowLibrary(false); setAuthMode("landing"); }}
+          style={{background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer", padding:0}}>
+          ← Ana Sayfa
+        </button>
+        <button onClick={() => {
+          saveCurrent(null); setJournals([]); setLoggedUsername("");
+          localStorage.clear(); setShowLibrary(false); setAuthMode("landing");
+        }}
+          style={{background:"none", border:"none", color:"#e74c3c88", fontFamily:"Jost,sans-serif", fontSize:13, cursor:"pointer", padding:0}}>
+          Hesabımdan Çık
+        </button>
       </div>
     </div>
   );
@@ -2973,7 +3087,21 @@ if (showAddJournal) {
         <div className="spiral-strip">
           {Array.from({length: 18}).map((_, i) => <div key={i} className="spiral-ring" />)}
         </div>
-
+{isSearchHit && searchQuery && (
+  <div className="search-hit-preview">
+    {(() => {
+      const text = pageData.ocr_text || "";
+      const idx = text.toLowerCase().indexOf(searchQuery.toLowerCase());
+      if (idx === -1) return null;
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(text.length, idx + searchQuery.length + 20);
+      const before = text.slice(start, idx);
+      const match = text.slice(idx, idx + searchQuery.length);
+      const after = text.slice(idx + searchQuery.length, end);
+      return <span>{start > 0 ? "..." : ""}{before}<mark>{match}</mark>{after}{end < text.length ? "..." : ""}</span>;
+    })()}
+  </div>
+)}
         {/* Flip Book — yan yana sayfalar */}
         <div className="flipbook-container">
           <div className="flipbook-pages">
@@ -3027,7 +3155,18 @@ if (showAddJournal) {
 
         {/* Alt bilgi */}
         <div className="journal-footer">
-          <span>{pages.length} / {Object.keys(current.template || {}).length || "?"} sayfa fotoğraflandı</span>
+          {(() => {
+  const lastPage = pages.filter(p => p.created_at).sort((a,b) => 
+    new Date(b.created_at) - new Date(a.created_at))[0];
+  const lastDate = lastPage ? new Date(lastPage.created_at).toLocaleDateString("tr-TR", 
+    {day:"numeric", month:"long"}) : null;
+  return (
+    <>
+      <span>{pages.length} / {Object.keys(current.template || {}).length || "?"} sayfa</span>
+      {lastDate && <span style={{fontSize:10, opacity:0.6}}>Son: {lastDate}</span>}
+    </>
+  );
+})()}
           {streakData?.current_streak > 0 && (
             <span className="streak-badge">🔥 {streakData.current_streak} gün</span>
           )}
@@ -4770,7 +4909,21 @@ const styles = `
     border-color: var(--tc, #8b2500);
     color: white;
   }
-
+.search-hit-preview {
+  font-size: 10px;
+  color: var(--warm);
+  padding: 4px 6px;
+  background: rgba(255,200,0,0.1);
+  border-radius: 4px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.search-hit-preview mark {
+  background: #ffe066;
+  color: #333;
+  border-radius: 2px;
+  padding: 0 1px;
+}
   .flip-page.search-hit {
     box-shadow: 0 0 0 2px var(--accent), 2px 4px 12px rgba(0,0,0,0.12);
   }
