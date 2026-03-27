@@ -1508,7 +1508,8 @@ const res = await fetch(endpoint, {
     password: regPassword,
     serial_no: regSerialNo,
     theme_id: regTheme,
-    pin: regPassword.slice(0,6)
+    pin: regPassword
+
   })
 });
       const d = await res.json();
@@ -1518,7 +1519,7 @@ const res = await fetch(endpoint, {
       const journal = {
         serial_no: d.serial_no, theme_id: d.theme_id,
         theme_name: d.theme_name, theme_color: d.theme_color,
-        pin: regPassword.slice(0,6), template: d.template,
+        pin: regPassword, template: d.template,
         username: regUsername
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
