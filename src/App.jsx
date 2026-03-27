@@ -1455,7 +1455,7 @@ useEffect(() => {
   if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
   
   const reg = await navigator.serviceWorker.ready;
-  const VAPID_PUBLIC = "BxxxxPublicKeyxxxx"; // buraya kendi key'ini yaz
+  const VAPID_PUBLIC = "BIEFow6ivm0NEO83BgJJ3bvZyq6aEG8NTKiFqv5-jG59Dg5mKAvMBiC0fG95vOaRXgsjoQj7IeHgB24kL_Rlyy8"; // buraya kendi key'ini yaz
   
   const subscription = await reg.pushManager.subscribe({
     userVisibleOnly: true,
