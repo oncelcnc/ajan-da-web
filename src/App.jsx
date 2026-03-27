@@ -1237,6 +1237,7 @@ const [showAddJournal, setShowAddJournal] = useState(false);
 
 const [newJournalSno, setNewJournalSno] = useState("");
 const [newJournalTheme, setNewJournalTheme] = useState("");
+const [newJournalPassword, setNewJournalPassword] = useState("");
  
 const [showLibrary, setShowLibrary] = useState(() => {
   try {
@@ -1482,7 +1483,7 @@ setShowLibrary(true);
       await loadPages(journal);
       loadStreak(journal.serial_no);
       loadPremiumStatus(journal.serial_no);
-      setStep("dashboard");
+      setShowLibrary(true);
       setAuthMode("landing");
     } catch { setError("Bağlantı hatası"); }
     setLoading(false);
@@ -1901,7 +1902,7 @@ const advancedSearch = async () => {
       loadStreak(updated.serial_no);
       loadYearlyReport(updated.serial_no);
       loadPremiumStatus(updated.serial_no);
-      setStep("dashboard");
+      setShowLibrary(true);
     } catch { setError("Bağlantı hatası"); }
     setLoading(false);
   };
@@ -2224,7 +2225,7 @@ const advancedSearch = async () => {
     );
   }
 // Kütüphane ekranı
-if (showLibrary && journals.length > 0) {
+if (showLibrary) {
   return (
     <div style={{minHeight:"100vh", background:"#1c1410", display:"flex", flexDirection:"column"}}>
       {/* Header */}
@@ -2523,76 +2524,93 @@ if (showAddJournal) {
     <div className="overlay-screen" style={{padding:"20px"}}>
       <div className="havale-modal">
         <div className="havale-title">📒 Yeni Ajanda Ekle</div>
-        <div className="havale-desc">Kapak QR'ını okutarak yeni ajandanı ekle</div>
+        <div className="havale-desc">Kapağın QR'ını okutarak yeni ajandanı ekle</div>
 
-         
-
-        <button className="auth-qr-btn" style={{alignSelf:"flex-start"}} onClick={async () => {
+        <button className="auth-qr-btn" style={{alignSelf:"flex-start", padding:"10px 16px", fontSize:13}} onClick={async () => {
           try {
             if (isNative) {
               const qr = await scanQR();
               if (qr) {
-                const m = qr.match(/AJANDA-([A-Z0-9]+)-SN([A-Z0-9]+)/i);
-                if (m) { setNewJournalTheme(m[1].toUpperCase()); setNewJournalSno(m[2]); }
+                const m = qr.match(/^AJANDA-([A-Z]+)-SN([A-Z0-9]+)$/i);
+                if (m) { setNewJournalTheme(m[1].toUpperCase()); setNewJournalSno(m[2].toUpperCase()); }
+                else alert("Geçersiz QR format. Kapağ QR'ını okutun.");
               }
             } else {
               const blob = await takePhoto();
-if (!blob) return;
-const form = new FormData();
-form.append("file", blob, "cover.jpg");
-const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
-const d = await res.json();
-if (d.serial_no) { setNewJournalSno(d.serial_no); setNewJournalTheme(d.theme_id || "FERDI"); }
+              if (!blob) return;
+              const form = new FormData();
+              form.append("file", blob, "cover.jpg");
+              const res = await fetch(`${API}/activate?pin=temp`, {method:"POST", body:form});
+              const d = await res.json();
+              if (d.serial_no && d.theme_id) { setNewJournalSno(d.serial_no); setNewJournalTheme(d.theme_id); }
+              else if (d.serial_no && !d.theme_id) alert("Tema okunamadı. Lütfen tekrar deneyin.");
+              else alert(d.detail || "QR okunamadı");
             }
-          } catch(e) { alert("QR okunamadı"); }
-        }}>📷 Kapak QR'ını Okut</button>
+          } catch(e) { alert("QR okunamadı: " + e.message); }
+        }}>📷 Kapağ QR'ını Okut</button>
 
         {newJournalSno && (
-          <div style={{fontSize:12, color:"var(--accent)"}}>
+          <div style={{fontSize:13, color:"var(--accent)", padding:"6px 0"}}>
             ✓ {newJournalSno} {newJournalTheme && `(${newJournalTheme})`}
           </div>
         )}
 
-        <button className="havale-btn" disabled={!newJournalSno || loading} onClick={async () => {
-          if (!newJournalSno || !loggedUsername) return;
-          setLoading(true);
-          try {
-            const res = await fetch(`${API}/user/add_journal/${loggedUsername}`, {
-              method: "POST",
-              headers: {"Content-Type":"application/json"},
-              body: JSON.stringify({
-                password: current.pin,
+        {newJournalSno && newJournalTheme && (
+          <>
+            <div className="havale-form-label">Hesap Şifreniz</div>
+            <input className="havale-input" type="password"
+              placeholder="Hesap şifrenizi girin"
+              value={newJournalPassword}
+              onChange={e => setNewJournalPassword(e.target.value)} />
+          </>
+        )}
+
+        <button className="havale-btn"
+          disabled={!newJournalSno || !newJournalTheme || !newJournalPassword || newJournalPassword.length < 4 || loading}
+          onClick={async () => {
+            if (!newJournalSno || !loggedUsername) return;
+            setLoading(true);
+            try {
+              const res = await fetch(`${API}/user/add_journal/${loggedUsername}`, {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({
+                  serial_no: newJournalSno,
+                  theme_id: newJournalTheme,
+                  password: newJournalPassword,
+                  pin: newJournalPassword
+                })
+              });
+              const d = await res.json();
+              if (!res.ok) { alert(d.detail || "Hata"); setLoading(false); return; }
+              const newJournal = {
                 serial_no: newJournalSno,
-                theme_id: newJournalTheme || "FERDI",
-                pin: current.pin
-              })
-            });
-            const d = await res.json();
-            if (!res.ok) { alert(d.detail || "Hata"); setLoading(false); return; }
-            const newJournal = {
-              serial_no: newJournalSno,
-              theme_id: d.theme_id || newJournalTheme || "FERDI",
-              theme_name: d.theme_name || newJournalTheme,
-              theme_color: d.theme_color || "#8b2500",
-              pin: current.pin,
-              template: d.template || {},
-              username: loggedUsername
-            };
-            saveJournals([...journals.filter(j => j.serial_no !== newJournalSno), newJournal]);
-            setShowAddJournal(false);
-            setNewJournalSno(""); setNewJournalTheme("");
-            alert("Ajanda eklendi! Ana sayfadan seçebilirsin.");
-          } catch { alert("Hata"); }
-          setLoading(false);
-        }}>
-          {loading ? "⏳ Ekleniyor..." : "Ajandayı Ekle →"}
+                theme_id: d.theme_id || newJournalTheme,
+                theme_name: d.theme_name || newJournalTheme,
+                theme_color: d.theme_color || "#8b2500",
+                pin: newJournalPassword,
+                template: d.template || {},
+                username: loggedUsername
+              };
+              saveJournals([...journals.filter(j => j.serial_no !== newJournalSno), newJournal]);
+              setShowAddJournal(false);
+              setNewJournalSno(""); setNewJournalTheme(""); setNewJournalPassword("");
+              setShowLibrary(true);
+              alert("Ajanda eklendi!");
+            } catch { alert("Hata"); }
+            setLoading(false);
+          }}>
+          {loading ? "⏳ Ekleniyor..." : "Ajandayi Ekle →"}
         </button>
-        <button className="havale-cancel" onClick={() => { setShowAddJournal(false); setNewJournalSno(""); }}>İptal</button>
+        <button className="havale-cancel" onClick={() => {
+          setShowAddJournal(false);
+          setNewJournalSno(""); setNewJournalTheme(""); setNewJournalPassword("");
+          setShowLibrary(true);
+        }}>İptal</button>
       </div>
     </div>
   );
 }
-  // Havale modal
   if (showHavale) {
     return (
       <div className="overlay-screen" style={{padding:"20px"}}>
