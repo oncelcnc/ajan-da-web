@@ -1143,15 +1143,15 @@ function ConfirmModal({ onConfirm, onCancel }) {
 // ─── ANA UYGULAMA ────────────────────────────────────────────────────
 export default function App() {
   const [step, setStep] = useState(() => {
-    try {
-      const saved = localStorage.getItem("ajan_current");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.serial_no) return "dashboard";
-      }
-      return "home";
-    } catch { return "home"; }
-  });
+  try {
+    const saved = localStorage.getItem("ajan_current");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.serial_no) return "dashboard";
+    }
+    return "home";
+  } catch { return "home"; }
+});
   const [journals, setJournals] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ajanda_journals") || "[]"); } catch { return []; }
   });
@@ -1236,7 +1236,20 @@ const [stripeLoading, setStripeLoading] = useState(false);
 const [showAddJournal, setShowAddJournal] = useState(false);
 const [newJournalSno, setNewJournalSno] = useState("");
 const [newJournalTheme, setNewJournalTheme] = useState("");
-const [showLibrary, setShowLibrary] = useState(false);
+ 
+const [showLibrary, setShowLibrary] = useState(() => {
+  try {
+    const saved = localStorage.getItem("ajan_current");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.serial_no) return false; // ajanda seçilmişse kütüphane gösterme
+    }
+    // Giriş yapılmış ama ajanda seçilmemişse kütüphane göster
+    const username = localStorage.getItem("ajan_username");
+    const journals = JSON.parse(localStorage.getItem("ajanda_journals") || "[]");
+    return !!(username && journals.length > 0);
+  } catch { return false; }
+});
   const isNative = !!window.Capacitor?.isNativePlatform?.();
 
   useEffect(() => { setEditData(null); }, [activePage?.page_no]);
