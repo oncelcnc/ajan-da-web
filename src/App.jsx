@@ -1451,6 +1451,15 @@ try {
   const jd = await jr.json();
   if (jd.journals?.length > 0) {
     saveJournals(jd.journals);
+    // Her ajandanın sayfa sayısını güncelle
+const updatedWithCounts = await Promise.all(jd.journals.map(async (j) => {
+  try {
+    const sr = await fetch(`${API}/stats?serial_no=${j.serial_no}`);
+    const sd = await sr.json();
+    return { ...j, page_count: sd.filled_pages || 0 };
+  } catch { return j; }
+}));
+saveJournals(updatedWithCounts);
   }
 } catch {}
 setShowLibrary(true);
@@ -2885,22 +2894,32 @@ if (showAddJournal) {
             <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
               🔍
             </button>
-          {searchOpen && (
-  <>
-    <input className="search-input" autoFocus
-      placeholder="Sayfalar içinde ara..."
-      value={searchQuery}
-      onChange={e => { setSearchQuery(e.target.value); advancedSearch(); }} />
-    <select className="search-input" style={{width:"auto", padding:"5px 8px"}}
-      value={searchType} onChange={e => { setSearchType(e.target.value); advancedSearch(); }}>
-      <option value="">Tüm tipler</option>
-      <option value="haftalik_dikey">Haftalık</option>
-      <option value="aylik_takvim">Aylık</option>
-      <option value="bas_planlayici">Günlük</option>
-      <option value="aliskanlik">Alışkanlık</option>
-      <option value="notes">Notlar</option>
-    </select>
-  </>
+     {searchOpen && (
+  <div style={{display:"flex", flexDirection:"column", gap:4, flex:1}}>
+    <div style={{display:"flex", gap:6}}>
+      <input className="search-input" autoFocus
+        placeholder="Sayfalar içinde ara..."
+        value={searchQuery}
+        onChange={e => { setSearchQuery(e.target.value); advancedSearch(); }} />
+      <select className="search-input" style={{width:"auto", padding:"5px 8px", flex:"0 0 auto"}}
+        value={searchType} onChange={e => { setSearchType(e.target.value); advancedSearch(); }}>
+        <option value="">Tüm tipler</option>
+        <option value="haftalik_dikey">Haftalık</option>
+        <option value="aylik_takvim">Aylık</option>
+        <option value="bas_planlayici">Günlük</option>
+        <option value="aliskanlik">Alışkanlık</option>
+        <option value="notes">Notlar</option>
+      </select>
+    </div>
+    <div style={{display:"flex", gap:6}}>
+      <input type="date" className="search-input" style={{flex:1, fontSize:11}}
+        value={searchDateFrom}
+        onChange={e => { setSearchDateFrom(e.target.value); advancedSearch(); }} />
+      <input type="date" className="search-input" style={{flex:1, fontSize:11}}
+        value={searchDateTo}
+        onChange={e => { setSearchDateTo(e.target.value); advancedSearch(); }} />
+    </div>
+  </div>
 )}
             {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
           </div>
@@ -3460,13 +3479,16 @@ if (showAddJournal) {
         <p className="al-section-sub">Her tema farklı sayfa tasarımları ve renk paleti ile gelir</p>
         <div className="al-themes-grid">
           {[
-            {name:"Manifest", pages:177, color:"#2d4a3e"},
-            {name:"Günlük", pages:450, color:"#5c6bc0"},
-            {name:"Takip", pages:131, color:"#c62828"},
-            {name:"Mini", pages:87, color:"#f57c00"},
-            {name:"Ferdi", pages:101, color:"#8b2500"},
-            {name:"Cici Kuş", pages:150, color:"#c2185b"},
-            {name:"Nokta", pages:77, color:"#1a237e"},
+            {name:"Ferdi", pages:479, color:"#8b2500"},
+{name:"Manifest", pages:430, color:"#2d4a3e"},
+{name:"Günlük", pages:433, color:"#5c6bc0"},
+{name:"Takip", pages:203, color:"#c62828"},
+{name:"Mini", pages:141, color:"#f57c00"},
+{name:"Cici Kuş", pages:398, color:"#c2185b"},
+{name:"Nokta", pages:254, color:"#1a237e"},
+{name:"Öğrenci", pages:344, color:"#00695c"},
+{name:"İş", pages:372, color:"#37474f"},
+{name:"Wellness", pages:250, color:"#558b2f"},
           ].map(t => (
             <div key={t.name} className="al-theme-book" style={{background: t.color}}>
               <div className="al-theme-spine" />
