@@ -3423,34 +3423,7 @@ if (showAddJournal) {
       📒 Yeni Ajanda Tanımla
     </button>
   </div>
-)}{current ? (
-  <div className="al-btns">
-    <button className="al-btn-primary" onClick={() => setStep("dashboard")}>
-      📖 Panele Gir →
-    </button>
-    <button className="al-btn-secondary" onClick={() => { saveCurrent(null); setShowLibrary(true); }}>
-      Ajandalarım
-    </button>
-  </div>
-) : loggedUsername && journals.length > 0 ? (
-  <div className="al-btns">
-    <button className="al-btn-primary" onClick={() => setShowLibrary(true)}>
-      📚 Ajandalarıma Git →
-    </button>
-    <button className="al-btn-secondary" onClick={() => { localStorage.clear(); setLoggedUsername(""); setAuthMode("login"); }}>
-      Farklı Hesapla Giriş
-    </button>
-  </div>
-) : (
-  <div className="al-btns">
-    <button className="al-btn-primary" onClick={() => setAuthMode("login")}>
-      Giriş Yap →
-    </button>
-    <button className="al-btn-secondary" onClick={() => setAuthMode("register")}>
-      📒 Yeni Ajanda Tanımla
-    </button>
-  </div>
-)}
+)} 
           {!current && journals.length > 0 && (
             <div className="al-saved">
               <div className="al-saved-label">Kayıtlı ajandalarım</div>
