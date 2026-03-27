@@ -1377,37 +1377,32 @@ useEffect(() => {
         alert("Bildirimler aktif! Her gün 20:00'de hatırlatacağım.");
 
        
-      } else {
-  if (!("Notification" in window)) { alert("Tarayıcınız bildirimleri desteklemiyor"); setLoading(false); return; }
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") { alert("Bildirim izni reddedildi"); setLoading(false); return; }
-  
-  // Service worker üzerinden zamanlanmış bildirim
-  if ("serviceWorker" in navigator) {
-    const reg = await navigator.serviceWorker.ready;
-    // Her gün kontrol eden bir alarm kur
-    const now = new Date();
-    const target = new Date();
-    target.setHours(notifHour, notifMinute, 0, 0);
-    if (target <= now) target.setDate(target.getDate() + 1);
-    const msUntil = target - now;
-    
-    // localStorage'a kaydet, SW okusun
-    localStorage.setItem("notif_time", JSON.stringify({ hour: notifHour, minute: notifMinute }));
-    localStorage.setItem("notif_enabled", "1");
-    
-    // İlk bildirimi setTimeout ile kur
-    setTimeout(() => {
-      new Notification("AJAN-DA 📓", { 
-        body: "Bugün ajandanı güncellemeyi unutma! 📝",
-        icon: "/icon-192.png"
-      });
-    }, msUntil);
-    
-    setPushEnabled(true); 
-    localStorage.setItem("push_enabled", "1");
-    alert(`Bildirimler aktif! İlk bildirim ${String(notifHour).padStart(2,"0")}:${String(notifMinute).padStart(2,"0")}'de gelecek. Sayfayı açık tutun.`);
+    } else {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    alert("Tarayıcınız desteklemiyor"); setLoading(false); return;
   }
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
+  
+  const reg = await navigator.serviceWorker.ready;
+  const VAPID_PUBLIC = "BxxxxPublicKeyxxxx"; // buraya kendi key'ini yaz
+  
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: VAPID_PUBLIC
+  });
+  
+  // Backend'e kaydet
+  await fetch(`${API}/push/subscribe/${current.serial_no}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ subscription: subscription.toJSON() })
+  });
+  
+  setPushEnabled(true);
+  localStorage.setItem("push_enabled", "1");
+  alert("Bildirimler aktif! Sayfa kapalıyken de gelecek.");
+
 }
     } catch(e) { alert("Hata: " + e.message); }
     setLoading(false);
