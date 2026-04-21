@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AJAN-DA" />
+     <meta name="description" content="Fiziksel ajandanı dijitalleştir. QR kodlu ajanda sayfalarını fotoğrafla, AI ile analiz et, her yerden eriş." />
+<meta name="keywords" content="dijital ajanda, ajanda uygulaması, QR ajanda, planner" />
+<meta property="og:title" content="AJAN-DA — Fiziksel Ajandanı Dijitalleştir" />
+<meta property="og:description" content="QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et." />
+<meta property="og:image" content="https://ajan-da.com/og-image.jpg" />
+<meta property="og:url" content="https://ajan-da.com" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://ajan-da.com" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>AJAN-DA</title>
+  </head>
+  <body>
+    <noscript>JavaScript gereklidir.</noscript>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('SW registered:', reg.scope))
+            .catch(err => console.log('SW error:', err));
+        });
+      }
+    </script>
+  </body>
+</html>
