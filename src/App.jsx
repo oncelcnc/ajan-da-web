@@ -2889,7 +2889,7 @@ if (showAddJournal) {
                   <div className="df-thumb-empty">{p.template?.icon || "📄"}</div>
                 )}
                 <div className="df-thumb-num">{p.page_no}</div>
-                {bm && <div className="df-thumb-bm">🔖</div>}
+                {bm && <div className="df-thumb-bm">❤️</div>}
               </div>
             );
           })}
@@ -2974,7 +2974,7 @@ if (showAddJournal) {
             {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
           </div>
           <div className="filter-tabs">
-            {[["all","Tümü"],["filled","✓"],["empty","○"],["bookmarked","🔖"]].map(([f,l]) => (
+            {[["all","Tümü"],["filled","✓"],["empty","○"],["bookmarked","❤️"]].map(([f,l]) => (
               <button key={f} className={`filter-tab ${filterMode===f?"active":""}`}
                 onClick={() => setFilterMode(f)}>{l}</button>
             ))}
@@ -3019,7 +3019,7 @@ if (showAddJournal) {
                   <div className="flip-page-margin" />
                   <div className="flip-page-inner">
                     <div className="flip-page-num">{pageData.page_no}</div>
-                    {bm && <div className="flip-page-bm">🔖</div>}
+                    {bm && <div className="flip-page-bm">❤️</div>}
                     {labelStamp && <div className="flip-page-stamp">{labelStamp}</div>}
                     {isFilled ? (
                       <div className="flip-page-photo">
