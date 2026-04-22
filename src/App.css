@@ -1,48 +1,36 @@
 /* ── Değişkenler (JS ile dinamik olarak değiştirilir) ─────────── */
 :root {
-  --bg: #f8f5f0;       /* Raporun istediği tam renk */
+  --bg: #f4f1ea;
   --card: #ffffff;
-  --accent: #dfe7e9;   /* Mint Yeşil */
-  --warm: #edbc73;     /* Hardal Turuncu */
-  --text: #292524;     /* Antrasit */
-  --line: #d1cfc9;     /* Sayfa çizgileri için yumuşak ton */
-}
-
- h1, h2, .tpl-header, .home-logo {
-  font-family: 'Cormorant Garamond', serif;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-body, .tpl-body {
-  font-family: 'Montserrat', sans-serif;
+  --accent: #2d6a4f;
+  --text: #292524;
+  --line: #e7c5a0;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {  background: var(--bg); color: var(--text); background-image: url("https://www.transparenttextures.com/patterns/cream-paper.png"); }
+body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
 .hidden { display: none !important; }
 
 /* ── Ana ekran ────────────────────────────────────────────────── */
 .home-screen {
   min-height: 100vh;
-  background: var(--bg); /* Kırık beyaz arka plan */
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
-
 .home-card {
-  background: #ffffff;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(20px);
   border-radius: 28px;
   padding: 40px 32px;
-  color: var(--text); /* Beyaz yerine antrasit */
+  color: #fff;
   text-align: center;
-  border: 1px solid var(--line);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
 }
-
-
 .home-logo {
   font-size: 42px;
   font-weight: 900;
@@ -363,26 +351,7 @@ body {  background: var(--bg); color: var(--text); background-image: url("https:
 }
 
 /* Sayfa içeriği */
-.page-content-wrap {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  position: relative; /* Gölgeyi konumlandırmak için şart */
-  background-color: var(--bg);
-  box-shadow: inset 10px 0 20px -10px rgba(0,0,0,0.1); /* Hafif derinlik */
-}
-.page-content-wrap::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 30px;
-  background: linear-gradient(to right, rgba(0,0,0,0.05), transparent);
-  pointer-events: none;
-  z-index: 2;
-}
+.page-content-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .toggle-row {
   display: flex; gap: 6px; margin-bottom: 8px;margin-right: 18px; justify-content: flex-end;
 }
