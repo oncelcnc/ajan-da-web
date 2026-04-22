@@ -1207,7 +1207,12 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_done"));
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    // Giriş yapılmışsa onboarding gösterme
+    const username = localStorage.getItem("ajan_username");
+    if (username) return false;
+    return !localStorage.getItem("onboarding_done");
+  });
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminKey, setAdminKey] = useState("");
@@ -1924,7 +1929,13 @@ const advancedSearch = async () => {
       const res = await fetch(`${API}/history?serial_no=${journal.serial_no}`);
       if (!res.ok) return;
       const data = await res.json();
-      setPages(data.notes || []);
+      const notes = data.notes || [];
+      setPages(notes);
+      // En son fotoğraflanan sayfaya git
+      if (notes.length > 0) {
+        const lastPage = notes.reduce((max, p) => p.page_no > max.page_no ? p : max, notes[0]);
+        setCurrentPageIdx(lastPage.page_no - 1);
+      }
     } catch(e) { console.error("loadPages error", e); }
   };
 
@@ -2214,6 +2225,7 @@ const advancedSearch = async () => {
       { icon: "🔍", title: "Ajandanı Aktive Et", desc: "Ajandanın kapağındaki QR kodu okut. Bu işlemi sadece bir kez yapman yeterli.", action: "Anladım" },
       { icon: "📸", title: "Sayfa Fotoğrafla", desc: "Her sayfanın köşesinde QR kod var. Sayfayı fotoğrafla, sistem otomatik kaydeder.", action: "Anladım" },
       { icon: "✨", title: "Dijital Ajandan Hazır!", desc: "Sayfaları ara, AI ile analiz et, arkadaşlarınla paylaş. Hadi başlayalım!", action: "ŞAHANE!" },
+
     ];
     const s = steps[onboardingStep];
     return (
@@ -2809,8 +2821,8 @@ if (showAddJournal) {
           </div>
           <div className="df-header-actions">
             <button className={`df-action-btn ${bookmarked ? "active" : ""}`}
-              onClick={() => toggleBookmark(activePage.page_no)} title="Yer imi">
-              {bookmarked ? "❤️" : "📎"}
+              onClick={() => toggleBookmark(activePage.page_no)} title="Favoriler">
+              {bookmarked ? "❤️" : "🤍"}
             </button>
             <button className="df-action-btn" onClick={() => setLabelPickerPage(activePage.page_no)} title="Etiket">
               🏷️
@@ -2942,7 +2954,7 @@ if (showAddJournal) {
         <div className="journal-toolbar">
           <div className={`search-bar ${searchOpen ? "open" : ""}`}>
             <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
-              🔍
+              {searchOpen ? "✕" : "🔍"}
             </button>
      {searchOpen && (
   <div style={{display:"flex", flexDirection:"column", gap:4, flex:1}}>
@@ -3426,7 +3438,7 @@ if (showAddJournal) {
         <div className="al-hero-texture" />
         <div className="al-hero-content">
           <div className="al-badge">✦ Yeni Nesil Ajanda Deneyimi</div>
-          <h1 className="al-h1">Fiziksel ajandanı<br/><span>dijitalleştir</span></h1>
+          <h1 className="al-h1">Kağıt ajandanı<br/><span>dijitalleştir</span></h1>
           <p className="al-p">Kağıda yazdıklarını dijitale taşı. QR kodlu ajandanı fotoğrafla, notlarına her yerden eriş. AI ile analiz et.</p>
           {current ? (
   <div className="al-btns">
@@ -3688,12 +3700,12 @@ const styles = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --cream: #f5f0e8;
-    --paper: #faf7f2;
+    --cream: #f8f5f0;
+    --paper: #fdfcfa;
     --ink: #1c1410;
     --warm: #7a6655;
-    --accent: #c4956a;
-    --border: #ddd5c4;
+    --accent: #edbc73;
+    --border: #dfe7e9;
     --soft: #ede8de;
     --linen: #e8e0d0;
     --red: #c0392b;
@@ -3730,7 +3742,7 @@ const styles = `
   .al-h1 span { color:#c4956a; font-style:italic; }
   .al-p { font-size:14px; line-height:1.8; color:rgba(255,255,255,0.55); max-width:280px; }
   .al-btns { display:flex; gap:10px; flex-wrap:wrap; }
-  .al-btn-primary { padding:14px 24px; background:#c4956a; color:white; border:none; border-radius:4px; font-family:'Jost',sans-serif; font-size:14px; font-weight:500; cursor:pointer; letter-spacing:0.5px; transition:all 0.2s; text-decoration:none; display:inline-block; }
+  .al-btn-primary { padding:14px 24px; background:var(--accent); color:var(--ink); border:none; border-radius:4px; font-family:'Jost',sans-serif; font-size:14px; font-weight:600; cursor:pointer; letter-spacing:0.5px; transition:all 0.2s; text-decoration:none; display:inline-block; }
   .al-btn-primary:hover { background:white; color:var(--ink); }
   .al-btn-secondary { padding:14px 24px; border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); border-radius:4px; font-size:14px; text-decoration:none; transition:all 0.2s; }
   .al-btn-secondary:hover { border-color:white; color:white; }
@@ -4285,20 +4297,22 @@ const styles = `
   .spiral-strip {
     display: flex;
     gap: 0;
-    background: #2a2a2a;
+    background: #e8e0d4;
     padding: 0 12px;
     overflow: hidden;
-    height: 22px;
+    height: 20px;
     align-items: center;
     justify-content: space-around;
+    border-top: 1px solid #d8cfc5;
+    border-bottom: 1px solid #d8cfc5;
   }
   .spiral-ring {
-    width: 16px; height: 16px;
+    width: 14px; height: 14px;
     border-radius: 50%;
-    border: 3px solid #555;
-    background: #333;
+    border: 2px solid #bbb0a0;
+    background: #d4cbc0;
     flex-shrink: 0;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.4);
   }
 
   /* ─── FLIP BOOK ───────────────────────────────────── */
@@ -5602,11 +5616,11 @@ const styles = `
   .auth-qr-btn { padding: 4px 10px; background: rgba(196,149,106,0.2); border: 1px solid rgba(196,149,106,0.4); border-radius: 4px; color: #c4956a; font-family: "Jost",sans-serif; font-size: 11px; cursor: pointer; }
   .auth-btn {
     padding: 14px;
-    background: #c4956a;
-    color: white; border: none;
+    background: var(--accent);
+    color: var(--ink); border: none;
     border-radius: 6px;
     font-family: "Jost",sans-serif;
-    font-size: 15px; font-weight: 500;
+    font-size: 15px; font-weight: 600;
     cursor: pointer; letter-spacing: 0.5px;
     transition: all 0.2s;
     margin-top: 4px;

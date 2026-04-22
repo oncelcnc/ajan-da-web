@@ -1,10 +1,10 @@
 /* ── Değişkenler (JS ile dinamik olarak değiştirilir) ─────────── */
 :root {
-  --bg: #f4f1ea;
+  --bg: #f8f5f0;
   --card: #ffffff;
-  --accent: #2d6a4f;
+  --accent: #edbc73;
   --text: #292524;
-  --line: #e7c5a0;
+  --line: #dfe7e9;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
