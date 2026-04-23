@@ -2580,17 +2580,13 @@ if (showAddJournal) {
         )}
 
         {newJournalSno && newJournalTheme && (
-          <>
-            <div className="havale-form-label">Hesap Şifreniz</div>
-            <input className="havale-input" type="password"
-              placeholder="Hesap şifrenizi girin"
-              value={newJournalPassword}
-              onChange={e => setNewJournalPassword(e.target.value)} />
-          </>
-        )}
+  <div style={{fontSize:13, color:"var(--accent)", padding:"8px 0"}}>
+    ✓ Ajanda bulundu. Mevcut hesabına eklenecek.
+  </div>
+)}
 
         <button className="havale-btn"
-          disabled={!newJournalSno || !newJournalTheme || !newJournalPassword || newJournalPassword.length < 4 || loading}
+disabled={!newJournalSno || !newJournalTheme || loading}
           onClick={async () => {
             if (!newJournalSno || !loggedUsername) return;
             setLoading(true);
@@ -2599,11 +2595,9 @@ if (showAddJournal) {
                 method: "POST",
                 headers: {"Content-Type":"application/json"},
                 body: JSON.stringify({
-                  serial_no: newJournalSno,
-                  theme_id: newJournalTheme,
-                  password: newJournalPassword,
-                  pin: newJournalPassword
-                })
+  serial_no: newJournalSno,
+  theme_id: newJournalTheme
+})
               });
               const d = await res.json();
               if (!res.ok) { alert(d.detail || "Hata"); setLoading(false); return; }
@@ -2618,7 +2612,7 @@ if (showAddJournal) {
               };
               saveJournals([...journals.filter(j => j.serial_no !== newJournalSno), newJournal]);
               setShowAddJournal(false);
-              setNewJournalSno(""); setNewJournalTheme(""); setNewJournalPassword("");
+setNewJournalSno(""); setNewJournalTheme("");
               setShowLibrary(true);
               alert("Ajanda eklendi!");
             } catch { alert("Hata"); }
@@ -2628,7 +2622,7 @@ if (showAddJournal) {
         </button>
         <button className="havale-cancel" onClick={() => {
           setShowAddJournal(false);
-          setNewJournalSno(""); setNewJournalTheme(""); setNewJournalPassword("");
+setNewJournalSno(""); setNewJournalTheme("");
           setShowLibrary(true);
         }}>İptal</button>
       </div>
