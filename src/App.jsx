@@ -1400,7 +1400,17 @@ useEffect(() => {
   if (permission !== "granted") { alert("İzin reddedildi"); setLoading(false); return; }
   
   const reg = await navigator.serviceWorker.ready;
-  const VAPID_PUBLIC = "BxxxxPublicKeyxxxx"; // buraya kendi key'ini yaz
+  
+  // VAPID public key'i backend'den al
+  let VAPID_PUBLIC;
+  try {
+    const vpRes = await fetch(`${API}/push/vapid-key`);
+    const vpData = await vpRes.json();
+    VAPID_PUBLIC = vpData.public_key;
+  } catch(e) {
+    alert("Push key alınamadı"); setLoading(false); return;
+  }
+  if (!VAPID_PUBLIC) { alert("VAPID key bulunamadı"); setLoading(false); return; }
   
   const subscription = await reg.pushManager.subscribe({
     userVisibleOnly: true,
