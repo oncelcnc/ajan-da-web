@@ -1200,6 +1200,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loggedUsername, setLoggedUsername] = useState(() => localStorage.getItem("ajan_username") || "");
   const [isFlipping, setIsFlipping] = useState(false);
+  const [flipOldPage, setFlipOldPage] = useState(null);
   const touchStartX = useRef(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "1");
   const [activeTab, setActiveTab] = useState("pages"); // pages | stats | chat | settings
@@ -2795,8 +2796,6 @@ setNewJournalSno(""); setNewJournalTheme("");
       || (activePage.template_type !== "multi" && activePage.template_type !== "notes" ? activePage.template_type : null)
       || "notes";
     const bookmarked = isBookmarked(activePage.page_no);
-
-    const [flipOldPage, setFlipOldPage] = useState(null);
 
     const goTo = (idx, dir) => {
       if (idx >= 0 && idx < allPagesForDetail.length && !isFlipping) {
