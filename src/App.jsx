@@ -2848,54 +2848,8 @@ setNewJournalSno(""); setNewJournalTheme("");
           </div>
         </div>
 
-        {/* Defter görünümü */}
-        <div className="df-book" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          {/* Sol cilt kenarı */}
-          <div className="df-book-spine" />
-          
-          {/* Sayfa */}
-          <div className={`df-book-page ${isFlipping ? `page-turning-${flipDir}` : ""}`}>
-            {/* Kağıt çizgileri arka plan */}
-            <div className="df-page-lines" />
-            
-            {/* İçerik */}
-            <div className="df-page-body">
-              {activePage.image_url ? (
-                <div className="df-photo-wrap" onClick={() => setLightboxImg(`${API}${activePage.image_url}`)}>
-                  <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
-                  <div className="df-photo-zoom-hint">🔍 Büyütmek için tıkla</div>
-                </div>
-              ) : (
-                <div className="df-empty-page">
-                  <div className="df-empty-hint">
-                    <span className="df-empty-icon">{activePage.template?.icon || "📄"}</span>
-                    <span>Bu sayfa henüz fotoğraflanmadı</span>
-                    <button className="df-photo-cta" onClick={() => { setActivePage(null); handleUploadPage(); }}>
-                      📸 Fotoğrafla
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Sayfa numarası */}
-            <div className="df-page-number">— {activePage.page_no} —</div>
-
-            {/* Sayfa köşe kıvrımı */}
-            <div className="df-page-curl" />
-          </div>
-
-          {/* Çevirme butonları */}
-          {curIdx > 0 && (
-            <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1, "left")}>‹</button>
-          )}
-          {curIdx < allPagesForDetail.length - 1 && (
-            <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1, "right")}>›</button>
-          )}
-        </div>
-
-        {/* OCR alan — defterin dışında */}
-        <div className="df-ocr-area">
+        {/* Sayfa içeriği */}
+        <div className="df-content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
           {/* OCR / El yazısı transkripsiyon */}
           {!activePage.is_empty && (
@@ -2970,7 +2924,14 @@ setNewJournalSno(""); setNewJournalTheme("");
             </div>
           )}
         </div>
-        </div>{/* df-ocr-area end */}
+
+        {/* Sayfa çevirme okları */}
+        {curIdx > 0 && (
+          <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1, "left")}>‹</button>
+        )}
+        {curIdx < allPagesForDetail.length - 1 && (
+          <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1, "right")}>›</button>
+        )}
 
         {/* Alt thumbnail şeridi */}
         <div className="df-thumbstrip">
@@ -4338,9 +4299,9 @@ const styles = `
   .flipbook-pages {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 16px 12px;
     width: 100%;
-    padding: 0;
+    padding: 4px;
   }
 
   @media (min-width: 500px) {
@@ -4352,29 +4313,91 @@ const styles = `
     aspect-ratio: 3/4;
     height: auto;
     background: #fdfcfa;
-    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    border-radius: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    border-radius: 4px 12px 12px 4px;
     cursor: pointer;
     position: relative;
     animation: scaleIn 0.3s ease var(--delay, 0s) both;
     transition: all 0.25s;
-    box-shadow: 2px 3px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    border: 1px solid rgba(0,0,0,0.06);
+    overflow: visible;
+    border: none;
     scroll-snap-align: none;
+
+    /* Kenarlardan içe doğru gölgeleme — bombeli kağıt hissi */
+    box-shadow:
+      inset 4px 0 8px -4px rgba(0,0,0,0.12),
+      inset -2px 0 6px -3px rgba(0,0,0,0.06),
+      inset 0 2px 4px -2px rgba(0,0,0,0.04),
+      inset 0 -2px 4px -2px rgba(0,0,0,0.03),
+      /* Dış gölge — masadan kalkık his */
+      2px 4px 8px rgba(0,0,0,0.07),
+      1px 2px 3px rgba(0,0,0,0.04);
   }
+
+  /* Kağıt kenarı — sol cilt tarafı */
+  .flip-page::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 8px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 60%, transparent);
+    border-radius: 4px 0 0 4px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Sağ alt köşe kıvrımı */
+  .flip-page::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 18px; height: 18px;
+    background: linear-gradient(315deg, #f0ece5 45%, transparent 45%);
+    border-radius: 0 0 12px 0;
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.04);
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Üst üste sayfa katmanları — altta 2 sayfa daha var gibi */
+  .flip-page-inner::before {
+    content: '';
+    position: absolute;
+    bottom: -3px; left: 2px; right: 2px;
+    height: 100%;
+    background: #f5f2ed;
+    border-radius: 3px 10px 10px 3px;
+    z-index: -1;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .flip-page-inner::after {
+    content: '';
+    position: absolute;
+    bottom: -6px; left: 4px; right: 4px;
+    height: 100%;
+    background: #efe9e0;
+    border-radius: 2px 8px 8px 2px;
+    z-index: -2;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+
   .flip-page:hover {
     transform: translateY(-6px) scale(1.02);
-    box-shadow: 4px 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(237,188,115,0.15);
-    border-color: var(--accent);
+    box-shadow:
+      inset 4px 0 8px -4px rgba(0,0,0,0.12),
+      inset -2px 0 6px -3px rgba(0,0,0,0.06),
+      inset 0 2px 4px -2px rgba(0,0,0,0.04),
+      inset 0 -2px 4px -2px rgba(0,0,0,0.03),
+      4px 10px 28px rgba(0,0,0,0.12),
+      2px 4px 8px rgba(237,188,115,0.1);
     z-index: 5;
   }
   .flip-page:active { transform: scale(0.97); }
-  .flip-page.filled { background: var(--card); }
-  .flip-page.search-hit { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+  .flip-page.filled { background: #fdfcfa; }
+  .flip-page.search-hit { box-shadow: inset 4px 0 8px -4px rgba(0,0,0,0.12), 0 0 0 2px var(--accent); }
   @keyframes pageSlideIn {
     from { opacity:0; transform:scale(0.9); }
     to { opacity:1; transform:scale(1); }
@@ -4384,19 +4407,21 @@ const styles = `
     height: 3px;
     width: 100%;
     flex-shrink: 0;
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-radius: 4px 12px 0 0;
   }
 
   .flip-page-margin { display: none; }
 
   .flip-page-inner {
     flex: 1;
-    padding: 10px 8px 8px;
+    padding: 10px 10px 10px 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
     position: relative;
+    overflow: hidden;
+    border-radius: 4px 12px 12px 4px;
   }
 
   .flip-page-num {
