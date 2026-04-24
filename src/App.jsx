@@ -1130,12 +1130,18 @@ function OcrTextEditor({ tplType, data, onSave }) {
 // ─── CONFIRM MODAL ───────────────────────────────────────────────────
 function ConfirmModal({ onConfirm, onCancel }) {
   return (
-    <div className="overlay-screen">
-      <div className="overlay-icon">⚠️</div>
-      <div className="overlay-title">Sayfa Zaten Kayıtlı</div>
-      <div className="overlay-desc">Bu sayfa daha önce fotoğraflanmış. Üzerine yazmak istiyor musun?</div>
-      <button className="btn-overlay-confirm" onClick={onConfirm}>✓ Üzerine Yaz</button>
-      <button className="btn-overlay-cancel" onClick={onCancel}>İptal</button>
+    <div className="confirm-overlay">
+      <div className="confirm-box">
+        <div style={{fontSize:"36px",marginBottom:"12px"}}>⚠️</div>
+        <div className="confirm-msg">
+          <strong>Sayfa Zaten Kayıtlı</strong><br/>
+          Bu sayfa daha önce fotoğraflanmış. Üzerine yazmak istiyor musun?
+        </div>
+        <div className="confirm-btns">
+          <button className="confirm-yes" onClick={onConfirm}>✓ Üzerine Yaz</button>
+          <button className="confirm-no" onClick={onCancel}>İptal</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -5035,7 +5041,7 @@ const styles = `
   /* ═══════════════════════════════════════════════════════
      OVERLAYS & MODALS
      ═══════════════════════════════════════════════════════ */
-  .step-overlay {
+  .step-overlay, .overlay-screen {
     position: fixed; inset: 0; z-index: 999;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
