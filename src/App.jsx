@@ -4435,13 +4435,17 @@ const styles = `
 
   .df-photo-wrap {
     width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
     border-radius: var(--radius);
     overflow: hidden;
     box-shadow: var(--shadow);
     cursor: zoom-in;
     position: relative;
     border: 1px solid var(--border);
+    transition: transform 0.2s, box-shadow 0.2s;
   }
+  .df-photo-wrap:hover { transform: scale(1.02); box-shadow: var(--shadow-lg); }
   .df-photo-wrap:hover .df-photo-zoom-hint { opacity: 1; }
   .df-photo-zoom-hint {
     position: absolute;
@@ -4458,6 +4462,8 @@ const styles = `
   }
   .df-photo {
     width: 100%;
+    max-height: 360px;
+    object-fit: cover;
     display: block;
   }
 
