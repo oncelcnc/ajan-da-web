@@ -1251,6 +1251,7 @@ const [newJournalTheme, setNewJournalTheme] = useState("");
 const [newJournalPassword, setNewJournalPassword] = useState("");
  
 const [lightboxImg, setLightboxImg] = useState(null);
+const [appThemeColor, setAppThemeColor] = useState(() => localStorage.getItem("ajan_app_theme") || "");
 
 const [showLibrary, setShowLibrary] = useState(() => {
   try {
@@ -3000,7 +3001,7 @@ setNewJournalSno(""); setNewJournalTheme("");
     })();
 
     return (
-      <div className="journal-app" style={{ "--tc": current.theme_color || "#8b2500" }}>
+      <div className="journal-app" style={{ "--tc": appThemeColor || current.theme_color || "#8b2500" }}>
         {/* Keten kapak şeridi */}
         <div className="journal-cover-strip">
           <div className="journal-cover-texture" />
@@ -3039,111 +3040,115 @@ setNewJournalSno(""); setNewJournalTheme("");
 
         {error && <div className="error-msg" style={{margin:"0 16px 8px"}}>{error}</div>}
 
-        {/* Arama + Filtre */}
-        <div className="journal-toolbar">
-          <div className={`search-bar ${searchOpen ? "open" : ""}`}>
-            <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
-              {searchOpen ? "✕" : "🔎"}
-            </button>
-     {searchOpen && (
-  <div style={{display:"flex", flexDirection:"column", gap:4, flex:1}}>
-    <div style={{display:"flex", gap:6}}>
-      <input className="search-input" autoFocus
-        placeholder="Sayfalar içinde ara..."
-        value={searchQuery}
-        onChange={e => { setSearchQuery(e.target.value); advancedSearch(); }} />
-      <select className="search-input" style={{width:"auto", padding:"5px 8px", flex:"0 0 auto"}}
-        value={searchType} onChange={e => { setSearchType(e.target.value); advancedSearch(); }}>
-        <option value="">Tüm tipler</option>
-        <option value="haftalik_dikey">Haftalık</option>
-        <option value="aylik_takvim">Aylık</option>
-        <option value="bas_planlayici">Günlük</option>
-        <option value="aliskanlik">Alışkanlık</option>
-        <option value="notes">Notlar</option>
-      </select>
-    </div>
-    <div style={{display:"flex", gap:6}}>
-      <input type="date" className="search-input" style={{flex:1, fontSize:11}}
-        value={searchDateFrom}
-        onChange={e => { setSearchDateFrom(e.target.value); advancedSearch(); }} />
-      <input type="date" className="search-input" style={{flex:1, fontSize:11}}
-        value={searchDateTo}
-        onChange={e => { setSearchDateTo(e.target.value); advancedSearch(); }} />
-    </div>
-  </div>
-)}
-            {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
-          </div>
-          <div className="filter-tabs">
-            {[["all","Tümü","Tüm sayfalar"],["filled","✓ Dolu","Dolu sayfalar"],["empty","○ Boş","Boş sayfalar"],["bookmarked","❤️","Favoriler"]].map(([f,l,tip]) => (
-              <button key={f} className={`filter-tab ${filterMode===f?"active":""}`}
-                title={tip} onClick={() => setFilterMode(f)}>{l}</button>
-            ))}
-          </div>
+        {/* ═══ PAGES TAB ═══ */}
+        {activeTab === "pages" && (
+          <>
+            {/* Arama + Filtre */}
+            <div className="journal-toolbar">
+              <div className={`search-bar ${searchOpen ? "open" : ""}`}>
+                <button className="search-toggle" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
+                  {searchOpen ? "✕" : "🔎"}
+                </button>
+         {searchOpen && (
+      <div style={{display:"flex", flexDirection:"column", gap:4, flex:1}}>
+        <div style={{display:"flex", gap:6}}>
+          <input className="search-input" autoFocus
+            placeholder="Sayfalar içinde ara..."
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); advancedSearch(); }} />
+          <select className="search-input" style={{width:"auto", padding:"5px 8px", flex:"0 0 auto"}}
+            value={searchType} onChange={e => { setSearchType(e.target.value); advancedSearch(); }}>
+            <option value="">Tüm tipler</option>
+            <option value="haftalik_dikey">Haftalık</option>
+            <option value="aylik_takvim">Aylık</option>
+            <option value="bas_planlayici">Günlük</option>
+            <option value="aliskanlik">Alışkanlık</option>
+            <option value="notes">Notlar</option>
+          </select>
         </div>
+        <div style={{display:"flex", gap:6}}>
+          <input type="date" className="search-input" style={{flex:1, fontSize:11}}
+            value={searchDateFrom}
+            onChange={e => { setSearchDateFrom(e.target.value); advancedSearch(); }} />
+          <input type="date" className="search-input" style={{flex:1, fontSize:11}}
+            value={searchDateTo}
+            onChange={e => { setSearchDateTo(e.target.value); advancedSearch(); }} />
+        </div>
+      </div>
+    )}
+                {searchQuery && <span className="search-count">{searchResults.length} sayfa</span>}
+              </div>
+              <div className="filter-tabs">
+                {[["all","Tümü","Tüm sayfalar"],["filled","✓ Dolu","Dolu sayfalar"],["empty","○ Boş","Boş sayfalar"],["bookmarked","❤️","Favoriler"]].map(([f,l,tip]) => (
+                  <button key={f} className={`filter-tab ${filterMode===f?"active":""}`}
+                    title={tip} onClick={() => setFilterMode(f)}>{l}</button>
+                ))}
+              </div>
+            </div>
 
-
-        {/* Flip Book — yan yana sayfalar */}
-        <div className="flipbook-container">
-          <div className="flipbook-pages">
-            {allPagesList
-              .filter(p => {
-                if (searchQuery && searchResults.length > 0) {
-                  return searchResults.some(r => r.page_no === p.page_no);
-                }
-                if (filterMode === "filled") return !p.is_empty;
-                if (filterMode === "empty") return p.is_empty;
-                if (filterMode === "bookmarked") return isBookmarked(p.page_no);
-                return true;
-              })
-              .map((pageData, idx) => {
-              const tplType = pageData.template_type || pageData.template?.design_id || "notes";
-              const icon = pageData.template?.icon || "📄";
-              const title = pageData.template?.title || `Sayfa ${pageData.page_no}`;
-              const isFilled = !pageData.is_empty && pageData.image_url;
-              const bm = isBookmarked(pageData.page_no);
-              const isSearchHit = searchQuery && searchResults.some(r => r.page_no === pageData.page_no);
-              const labelColor = pageData.label_color;
-              const labelStamp = pageData.label_stamp;
-              return (
-                <div
-                  key={pageData.page_no}
-                  className={`flip-page ${isFilled ? "filled" : "empty"} ${isSearchHit ? "search-hit" : ""}`}
-                  onClick={() => setActivePage(pageData)}
-                  style={{"--delay": `${idx * 0.03}s`, ...(labelColor ? {"--label-color": labelColor} : {})}}
-                >
-                  {labelColor && <div className="flip-page-label-bar" style={{background: labelColor}} />}
-                  <div className="flip-page-margin" />
-                  <div className="flip-page-inner">
-                    <div className="flip-page-num">{pageData.page_no}</div>
-                    {bm && <div className="flip-page-bm">❤️</div>}
-                    {labelStamp && <div className="flip-page-stamp">{labelStamp}</div>}
-                    {isFilled ? (
-                      <div className="flip-page-photo">
-                        <img src={`${API}${pageData.image_url}`} alt="" />
-                        <div className="flip-page-filled-badge">✓</div>
+            {/* Flip Book */}
+            <div className="flipbook-container">
+              <div className="flipbook-pages">
+                {allPagesList
+                  .filter(p => {
+                    if (searchQuery && searchResults.length > 0) {
+                      return searchResults.some(r => r.page_no === p.page_no);
+                    }
+                    if (filterMode === "filled") return !p.is_empty;
+                    if (filterMode === "empty") return p.is_empty;
+                    if (filterMode === "bookmarked") return isBookmarked(p.page_no);
+                    return true;
+                  })
+                  .map((pageData, idx) => {
+                  const tplType = pageData.template_type || pageData.template?.design_id || "notes";
+                  const icon = pageData.template?.icon || "📄";
+                  const title = pageData.template?.title || `Sayfa ${pageData.page_no}`;
+                  const isFilled = !pageData.is_empty && pageData.image_url;
+                  const bm = isBookmarked(pageData.page_no);
+                  const isSearchHit = searchQuery && searchResults.some(r => r.page_no === pageData.page_no);
+                  const labelColor = pageData.label_color;
+                  const labelStamp = pageData.label_stamp;
+                  return (
+                    <div
+                      key={pageData.page_no}
+                      className={`flip-page ${isFilled ? "filled" : "empty"} ${isSearchHit ? "search-hit" : ""}`}
+                      onClick={() => setActivePage(pageData)}
+                      style={{"--delay": `${idx * 0.03}s`, ...(labelColor ? {"--label-color": labelColor} : {})}}
+                    >
+                      {labelColor && <div className="flip-page-label-bar" style={{background: labelColor}} />}
+                      <div className="flip-page-margin" />
+                      <div className="flip-page-inner">
+                        <div className="flip-page-num">{pageData.page_no}</div>
+                        {bm && <div className="flip-page-bm">❤️</div>}
+                        {labelStamp && <div className="flip-page-stamp">{labelStamp}</div>}
+                        {isFilled ? (
+                          <div className="flip-page-photo">
+                            <img src={`${API}${pageData.image_url}`} alt="" />
+                            <div className="flip-page-filled-badge">✓</div>
+                          </div>
+                        ) : (
+                          <div className="flip-page-empty-icon">{icon}</div>
+                        )}
+                        <div className="flip-page-title">{title}</div>
                       </div>
-                    ) : (
-                      <div className="flip-page-empty-icon">{icon}</div>
-                    )}
-                    <div className="flip-page-title">{title}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* Alt bilgi */}
-        <div className="journal-footer">
-          <span>{pages.length} / {Object.keys(current.template || {}).length || "?"} sayfa fotoğraflandı</span>
-          {streakData?.current_streak > 0 && (
-            <span className="streak-badge">🔥 {streakData.current_streak} gün</span>
-          )}
-          {isPremium && <span className="premium-badge">⭐ Premium</span>}
-        </div>
+            {/* Alt bilgi */}
+            <div className="journal-footer">
+              <span>{pages.length} / {Object.keys(current.template || {}).length || "?"} sayfa fotoğraflandı</span>
+              {streakData?.current_streak > 0 && (
+                <span className="streak-badge">🔥 {streakData.current_streak} gün</span>
+              )}
+              {isPremium && <span className="premium-badge">⭐ Premium</span>}
+            </div>
+          </>
+        )}
 
-        {/* Tab içerikleri */}
+        {/* ═══ OTHER TABS — hemen menünün altında ═══ */}
         {activeTab === "stats" && (
           <div className="tab-panel">
             {/* Streak */}
@@ -3375,6 +3380,30 @@ setNewJournalSno(""); setNewJournalTheme("");
                     </button>
                   </div>
                 </div>
+              )}
+            </div>
+
+
+            {/* Tema Rengi */}
+            <div className="settings-section">
+              <div className="settings-title">Tema Rengi</div>
+              <div className="settings-hint" style={{marginBottom:8}}>Kapak ve arayüz rengini değiştir</div>
+              <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+                {["#8b2500","#1a5c3a","#1a3a6b","#6b1a5c","#4a3728","#2d2d2d","#c4956a","#e85d5d","#5d8de8","#edbc73","#6ec87a","#dfe7e9"].map(c => (
+                  <button key={c} onClick={() => { setAppThemeColor(c); localStorage.setItem("ajan_app_theme", c); }}
+                    style={{
+                      width:36, height:36, borderRadius:"50%", background:c,
+                      border: (appThemeColor || current.theme_color) === c ? "3px solid var(--text)" : "2px solid var(--border)",
+                      cursor:"pointer", transition:"all 0.2s",
+                      boxShadow: (appThemeColor || current.theme_color) === c ? "0 0 0 2px var(--accent-glow)" : "none"
+                    }} />
+                ))}
+              </div>
+              {appThemeColor && (
+                <button className="settings-action-btn" style={{marginTop:8}}
+                  onClick={() => { setAppThemeColor(""); localStorage.removeItem("ajan_app_theme"); }}>
+                  ↩ Varsayılan Renge Dön
+                </button>
               )}
             </div>
 
@@ -3848,7 +3877,7 @@ const styles = `
   /* ═══════════════════════════════════════════════════════
      APP LANDING PAGE
      ═══════════════════════════════════════════════════════ */
-  .app-landing { min-height:100vh; background:var(--bg); overflow-x:hidden; }
+  .app-landing { min-height:100vh; background:#f8f5f0; overflow-x:hidden; color:#1c1410; }
 
   .al-nav { position:sticky; top:0; z-index:100; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; background:rgba(248,245,240,0.95); backdrop-filter:blur(16px); border-bottom:1px solid var(--border); }
   .al-nav-logo { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:400; color:var(--accent); letter-spacing:2px; }
@@ -3863,7 +3892,7 @@ const styles = `
   .al-hero-content { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; gap:16px; }
   .al-badge { display:inline-block; padding:5px 14px; background:var(--accent-glow); border:1px solid rgba(237,188,115,0.3); border-radius:24px; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); align-self:flex-start; font-weight:600; }
   .al-h1 { font-family:'Cormorant Garamond',serif; font-size:clamp(36px,8vw,56px); font-weight:400; line-height:1.1; color:var(--text); }
-  .al-h1 span { color:var(--accent); font-style:italic; }
+  .al-h1 span { color:#edbc73; font-style:italic; }
   .al-p { font-size:14px; line-height:1.8; color:var(--text2); max-width:300px; }
   .al-btns { display:flex; gap:10px; flex-wrap:wrap; }
   .al-btn-primary { padding:14px 28px; background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:14px; font-weight:600; cursor:pointer; letter-spacing:0.5px; transition:all 0.2s; text-decoration:none; display:inline-block; }
@@ -3894,7 +3923,7 @@ const styles = `
   .al-section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(26px,5vw,40px); font-weight:400; margin-bottom:12px; line-height:1.2; }
   .al-section-sub { font-size:13px; color:var(--text2); line-height:1.8; margin-bottom:40px; }
 
-  .al-features { background:var(--bg); }
+  .al-features { background:#f8f5f0; }
   .al-features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
   .al-feature-card { padding:20px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); transition:all 0.25s; }
   .al-feature-card:hover { transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,0.3); border-color:var(--accent); }
@@ -3902,14 +3931,14 @@ const styles = `
   .al-feature-title { font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text); }
   .al-feature-desc { font-size:11px; color:var(--text2); line-height:1.7; }
 
-  .al-how { background:var(--surface); }
+  .al-how { background:#dfe7e9; }
   .al-steps { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-top:32px; }
   .al-step { text-align:center; }
   .al-step-num { width:48px; height:48px; border-radius:50%; background:var(--accent); color:var(--bg); display:flex; align-items:center; justify-content:center; font-family:'Cormorant Garamond',serif; font-size:20px; margin:0 auto 12px; }
   .al-step-title { font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text); }
   .al-step-desc { font-size:11px; color:var(--text2); line-height:1.7; }
 
-  .al-themes { background:var(--bg); }
+  .al-themes { background:#f8f5f0; }
   .al-themes-grid { display:flex; gap:10px; overflow-x:auto; padding:4px 0 16px; margin-top:32px; scroll-snap-type:x mandatory; }
   .al-themes-grid::-webkit-scrollbar { display:none; }
   .al-theme-book { width:72px; height:120px; border-radius:3px var(--radius-xs) var(--radius-xs) 3px; flex-shrink:0; scroll-snap-align:center; position:relative; transition:all 0.25s; box-shadow:var(--shadow); cursor:pointer; }
@@ -3919,7 +3948,7 @@ const styles = `
   .al-theme-name { font-size:7px; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.95); writing-mode:vertical-rl; transform:rotate(180deg); font-weight:700; }
   .al-theme-pages { font-size:6px; color:rgba(255,255,255,0.4); }
 
-  .al-pricing { background:var(--surface); }
+  .al-pricing { background:#dfe7e9; }
   .al-pricing-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:32px; }
   .al-pricing-card { padding:22px; border-radius:var(--radius); border:1px solid var(--border); display:flex; flex-direction:column; gap:8px; background:var(--card); }
   .al-pricing-featured { background:linear-gradient(145deg,#faf8f5,#f0ece5); border-color:var(--accent); }
@@ -3937,7 +3966,7 @@ const styles = `
   .al-pricing-solid { background:var(--accent); color:var(--bg); }
   .al-pricing-note { font-size:11px; color:var(--text3); margin-top:12px; }
 
-  .al-faq { background:var(--bg); }
+  .al-faq { background:#f8f5f0; }
   .al-faq-list { display:flex; flex-direction:column; margin-top:24px; }
   .al-faq-item { border-bottom:1px solid var(--border); padding:18px 0; cursor:pointer; }
   .al-faq-q { font-size:14px; font-weight:500; display:flex; justify-content:space-between; align-items:center; gap:8px; }
@@ -3963,7 +3992,7 @@ const styles = `
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--bg);
+    background: #f8f5f0;
     position: relative;
   }
 
@@ -5462,6 +5491,112 @@ const styles = `
     border:1px solid var(--border);
     box-shadow:var(--shadow-lg);
   }
+
+
+  /* ═══════════════════════════════════════════════════════
+     ADMIN PANEL — DÜZGÜN
+     ═══════════════════════════════════════════════════════ */
+  .admin-screen { min-height:100vh; background:var(--bg); display:flex; flex-direction:column; }
+  .admin-header { display:flex; align-items:center; gap:16px; padding:16px 20px; border-bottom:1px solid var(--border); background:var(--surface); }
+  .admin-back { background:none; border:none; color:var(--text2); font-family:'Montserrat',sans-serif; font-size:14px; cursor:pointer; }
+  .admin-title { font-family:'Cormorant Garamond',serif; font-size:20px; color:var(--accent); }
+  .admin-login { display:flex; flex-direction:column; align-items:center; gap:16px; padding:48px 24px; }
+  .admin-login-icon { font-size:48px; }
+  .admin-key-input { width:100%; max-width:280px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:'Montserrat',sans-serif; font-size:15px; text-align:center; outline:none; }
+  .admin-key-input:focus { border-color:var(--accent); }
+  .admin-btn { padding:12px 32px; background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:14px; font-weight:600; cursor:pointer; }
+  .admin-tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface); }
+  .admin-tab { flex:1; padding:12px 8px; text-align:center; background:none; border:none; border-bottom:2px solid transparent; color:var(--text3); font-family:'Montserrat',sans-serif; font-size:12px; cursor:pointer; font-weight:500; transition:all 0.2s; }
+  .admin-tab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--accent-glow); }
+  .admin-content { padding:16px; display:flex; flex-direction:column; gap:12px; flex:1; overflow-y:auto; }
+  .admin-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .admin-stat-card { padding:14px 10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); text-align:center; }
+  .admin-stat-icon { font-size:20px; margin-bottom:4px; }
+  .admin-stat-num { font-family:'Cormorant Garamond',serif; font-size:24px; font-weight:700; color:var(--accent); }
+  .admin-stat-label { font-size:10px; color:var(--text3); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+  .admin-section-title { font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--text); margin:8px 0; }
+  .admin-journal-row { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:6px; }
+  .ajr-info { display:flex; align-items:center; gap:8px; }
+  .ajr-sno { font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+  .ajr-theme { font-size:11px; color:var(--text2); background:var(--surface2); padding:2px 8px; border-radius:12px; }
+  .ajr-premium { font-size:14px; }
+  .ajr-meta { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text3); }
+  .ajr-btn { padding:5px 12px; background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-xs); font-family:'Montserrat',sans-serif; font-size:10px; font-weight:600; cursor:pointer; }
+  .admin-empty { text-align:center; padding:24px; color:var(--text3); font-size:13px; }
+  .admin-payment-card { padding:14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; display:flex; flex-direction:column; gap:6px; }
+  .admin-payment-card.pending { border-left:3px solid var(--accent); }
+  .admin-payment-card.approved { border-left:3px solid var(--green); }
+  .admin-payment-card.rejected { border-left:3px solid var(--red); }
+  .apc-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .apc-sno { font-weight:600; font-size:13px; color:var(--text); }
+  .apc-plan { font-size:11px; color:var(--text2); background:var(--surface2); padding:2px 8px; border-radius:12px; }
+  .apc-status { font-size:11px; font-weight:600; }
+  .apc-status.pending { color:var(--accent); }
+  .apc-status.approved { color:var(--green); }
+  .apc-status.rejected { color:var(--red); }
+  .apc-name { font-size:12px; color:var(--text2); }
+  .apc-date { font-size:10px; color:var(--text3); }
+  .apc-actions { display:flex; gap:8px; margin-top:4px; }
+  .apc-approve { padding:8px 16px; background:var(--green); color:white; border:none; border-radius:var(--radius-xs); font-family:'Montserrat',sans-serif; font-size:12px; font-weight:600; cursor:pointer; }
+  .apc-reject { padding:8px 16px; background:var(--surface2); color:var(--red); border:1px solid var(--red); border-radius:var(--radius-xs); font-family:'Montserrat',sans-serif; font-size:12px; cursor:pointer; }
+  .admin-access-btn { position:fixed; bottom:16px; right:16px; width:40px; height:40px; border-radius:50%; background:var(--surface); border:1px solid var(--border); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:50; box-shadow:var(--shadow); }
+
+
+  /* Tab panels fill space */
+  .tab-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-panel.chat-panel {
+    padding: 0;
+    gap: 0;
+  }
+  .tab-panel.settings-panel {
+    padding: 16px;
+  }
+  .friends-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .friends-title { font-family:'Cormorant Garamond',serif; font-size:18px; color:var(--text); }
+  .friend-card { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:6px; cursor:pointer; transition:all 0.2s; }
+  .friend-card:hover { border-color:var(--accent); }
+  .stats-card {
+    padding: 16px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .stats-card-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 10px; letter-spacing: 0.5px; }
+  .stats-row { display: flex; gap: 12px; margin-bottom: 10px; }
+  .stats-num-block { flex: 1; text-align: center; padding: 10px 6px; background: var(--surface2); border-radius: var(--radius-xs); }
+  .stats-big { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stats-sub { font-size: 9px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .heatmap { display: flex; gap: 2px; overflow-x: auto; padding: 4px 0; }
+  .heatmap::-webkit-scrollbar { display: none; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 2px; }
+  .heatmap-cell { width: 8px; height: 8px; border-radius: 2px; background: var(--surface2); }
+  .heatmap-cell.active { background: var(--accent); }
+  .wrapped-card { background: var(--surface); }
+
+  /* Toggle button */
+  .toggle-btn { width:44px; height:24px; border-radius:12px; border:none; background:var(--surface2); position:relative; cursor:pointer; transition:background 0.2s; }
+  .toggle-btn.on { background:var(--accent); }
+  .toggle-knob { width:20px; height:20px; border-radius:50%; background:white; position:absolute; top:2px; left:2px; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-btn.on .toggle-knob { left:22px; }
+
+  /* Premium badge */
+  .premium-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:var(--accent-glow); border:1px solid rgba(237,188,115,0.3); border-radius:12px; font-size:10px; color:var(--accent); font-weight:600; }
+
+  /* Havale modal */
+  .havale-modal { background:var(--surface); border-radius:var(--radius); padding:24px; width:90%; max-width:380px; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border); box-shadow:var(--shadow-lg); }
+  .havale-title { font-family:'Cormorant Garamond',serif; font-size:20px; color:var(--text); }
+  .havale-desc { font-size:13px; color:var(--text2); line-height:1.6; }
+  .havale-info { padding:12px; background:var(--surface2); border-radius:var(--radius-xs); font-size:12px; color:var(--text); line-height:1.6; }
+  .havale-btn { padding:12px; background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:14px; font-weight:600; cursor:pointer; }
+  .havale-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
   .region-block { border:1px solid var(--border); border-radius:var(--radius-xs); padding:6px; background:var(--surface); }
   .region-label { font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--text3); margin-bottom:3px; }
