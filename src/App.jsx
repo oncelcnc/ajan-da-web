@@ -2865,65 +2865,65 @@ setNewJournalSno(""); setNewJournalTheme("");
             <div className="df-ocr-card">
               <div className="df-ocr-header">
                 <span className="df-ocr-title">📝 Sayfada Yazanlar</span>
-                <button className="df-ocr-ai-btn" onClick={async () => {
-                  if (!activePage.image_url) return;
-                  setAiLoading(true);
-                  try {
-                    const imgRes = await fetch(`${API}${activePage.image_url}`);
-                    const imgBlob = await imgRes.blob();
-                    const reader = new FileReader();
-                    reader.onload = async () => {
-                      const base64 = reader.result.split(",")[1];
-                      const mediaType = imgBlob.type || "image/jpeg";
-                      const res = await fetch("https://api.anthropic.com/v1/messages", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          model: "claude-sonnet-4-20250514",
-                          max_tokens: 1000,
-                          messages: [{
-                            role: "user",
-                            content: [
-                              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-                              { type: "text", text: "Bu ajanda sayfasında el yazısıyla ne yazıyor? Türkçe olarak düzgün bir şekilde transkribe et. Sadece yazılanları yaz, açıklama ekleme." }
-                            ]
-                          }]
-                        })
-                      });
+                {activePage.image_url && (
+                  <button className="df-ocr-ai-btn" onClick={async () => {
+                    setAiLoading(true);
+                    try {
+                      const res = await fetch(`${API}/ai/ocr?serial_no=${current.serial_no}&page_no=${activePage.page_no}`, { method: "POST" });
                       const data = await res.json();
-                      const text = data.content?.map(c => c.text || "").join("\n") || "Okunamadı";
-                      setEditData(prev => ({ ...prev, _ai_ocr: text }));
-                    };
-                    reader.readAsDataURL(imgBlob);
-                  } catch(e) { console.error(e); setEditData(prev => ({ ...prev, _ai_ocr: "Hata oluştu" })); }
-                  finally { setAiLoading(false); }
-                }} disabled={aiLoading}>
-                  {aiLoading ? "⏳ Okunuyor..." : "🤖 AI ile Oku"}
-                </button>
+                      if (data.ocr_text) {
+                        setEditData(prev => ({ ...prev, _ai_ocr: data.ocr_text, _ai_ocr_editing: false }));
+                        // pages listesinde de güncelle
+                        setPages(prev => prev.map(p => p.page_no === activePage.page_no ? { ...p, ocr_text: data.ocr_text } : p));
+                        setActivePage(prev => ({ ...prev, ocr_text: data.ocr_text }));
+                      }
+                    } catch(e) { console.error(e); setError("AI OCR hatası"); }
+                    setAiLoading(false);
+                  }} disabled={aiLoading}>
+                    {aiLoading ? "⏳ Okunuyor..." : (activePage.ocr_text ? "🔄 Tekrar Oku" : "🤖 AI ile Oku")}
+                  </button>
+                )}
               </div>
               
-              {/* AI OCR sonucu */}
-              {editData?._ai_ocr && (
+              {/* OCR sonucu — düzenlenebilir */}
+              {(activePage.ocr_text || editData?._ai_ocr) && (
                 <div className="df-ocr-result">
-                  <div className="df-ocr-result-label">🤖 AI Transkripsiyon</div>
-                  <div className="df-ocr-result-text">{editData._ai_ocr}</div>
-                </div>
-              )}
-
-              {/* Mevcut OCR text */}
-              {activePage.ocr_text && (
-                <div className="df-ocr-existing">
-                  <div className="df-ocr-result-label">📋 Otomatik OCR</div>
-                  <OcrTextEditor
-                    tplType={tplType}
-                    data={editData || activePage.template_data}
-                    onSave={handleSaveEdit}
-                  />
+                  {editData?._ai_ocr_editing ? (
+                    <>
+                      <textarea 
+                        className="df-ocr-edit-area"
+                        value={editData?._ai_ocr_text ?? activePage.ocr_text ?? ""}
+                        onChange={e => setEditData(prev => ({ ...prev, _ai_ocr_text: e.target.value }))}
+                        rows={6}
+                      />
+                      <div className="df-ocr-edit-btns">
+                        <button className="df-ocr-save-btn" onClick={async () => {
+                          const txt = editData?._ai_ocr_text ?? activePage.ocr_text;
+                          try {
+                            await fetch(`${API}/ai/ocr/save?serial_no=${current.serial_no}&page_no=${activePage.page_no}&text=${encodeURIComponent(txt)}`, { method: "POST" });
+                            setPages(prev => prev.map(p => p.page_no === activePage.page_no ? { ...p, ocr_text: txt } : p));
+                            setActivePage(prev => ({ ...prev, ocr_text: txt }));
+                            setEditData(prev => ({ ...prev, _ai_ocr_editing: false, _ai_ocr: null }));
+                          } catch(e) { setError("Kaydetme hatası"); }
+                        }}>✓ Kaydet</button>
+                        <button className="df-ocr-cancel-btn" onClick={() => {
+                          setEditData(prev => ({ ...prev, _ai_ocr_editing: false, _ai_ocr_text: undefined }));
+                        }}>İptal</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="df-ocr-result-text">{editData?._ai_ocr || activePage.ocr_text}</div>
+                      <button className="df-ocr-edit-trigger" onClick={() => {
+                        setEditData(prev => ({ ...prev, _ai_ocr_editing: true, _ai_ocr_text: editData?._ai_ocr || activePage.ocr_text }));
+                      }}>✏️ Düzelt</button>
+                    </>
+                  )}
                 </div>
               )}
 
               {!activePage.ocr_text && !editData?._ai_ocr && (
-                <div className="df-ocr-empty">Henüz metin okunmadı. "AI ile Oku" butonuna tıklayarak el yazısını okutabilirsin.</div>
+                <div className="df-ocr-empty">Yazı okunmadı. "AI ile Oku" butonuna tıklayarak el yazısını okutabilirsin.</div>
               )}
             </div>
           )}
@@ -4633,6 +4633,64 @@ const styles = `
     padding: 12px;
     line-height: 1.7;
   }
+
+  .df-ocr-edit-area {
+    width: 100%;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-xs);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    line-height: 1.8;
+    outline: none;
+    resize: vertical;
+    min-height: 100px;
+  }
+  .df-ocr-edit-btns {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .df-ocr-save-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius-xs);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .df-ocr-save-btn:hover { background: var(--accent2); }
+  .df-ocr-cancel-btn {
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--text2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .df-ocr-edit-trigger {
+    margin-top: 8px;
+    padding: 6px 14px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text3);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    align-self: flex-start;
+  }
+  .df-ocr-edit-trigger:hover { border-color: var(--accent); color: var(--accent); }
 
   .df-ocr {
     background: var(--surface);
