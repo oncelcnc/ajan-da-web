@@ -2804,11 +2804,11 @@ setNewJournalSno(""); setNewJournalTheme("");
         setIsFlipping(true);
         setTimeout(() => {
           setActivePage(allPagesForDetail[idx]);
-        }, 250);
+        }, 300);
         setTimeout(() => {
           setIsFlipping(false);
           setFlipDir(null);
-        }, 500);
+        }, 600);
       }
     };
 
@@ -2848,28 +2848,54 @@ setNewJournalSno(""); setNewJournalTheme("");
           </div>
         </div>
 
-        {/* Sayfa içeriği */}
-        <div className="df-content-wrap" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          <div className={`df-content ${isFlipping ? `df-turn-${flipDir}` : ""}`}>
-          {activePage.image_url ? (
-            <div className="df-photo-wrap" onClick={() => setLightboxImg(`${API}${activePage.image_url}`)}>
-              <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
-              <div className="df-photo-zoom-hint">🔍 Büyütmek için tıkla</div>
+        {/* Defter görünümü */}
+        <div className="df-book" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          {/* Sol cilt kenarı */}
+          <div className="df-book-spine" />
+          
+          {/* Sayfa */}
+          <div className={`df-book-page ${isFlipping ? `page-turning-${flipDir}` : ""}`}>
+            {/* Kağıt çizgileri arka plan */}
+            <div className="df-page-lines" />
+            
+            {/* İçerik */}
+            <div className="df-page-body">
+              {activePage.image_url ? (
+                <div className="df-photo-wrap" onClick={() => setLightboxImg(`${API}${activePage.image_url}`)}>
+                  <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
+                  <div className="df-photo-zoom-hint">🔍 Büyütmek için tıkla</div>
+                </div>
+              ) : (
+                <div className="df-empty-page">
+                  <div className="df-empty-hint">
+                    <span className="df-empty-icon">{activePage.template?.icon || "📄"}</span>
+                    <span>Bu sayfa henüz fotoğraflanmadı</span>
+                    <button className="df-photo-cta" onClick={() => { setActivePage(null); handleUploadPage(); }}>
+                      📸 Fotoğrafla
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="df-empty-page">
-              <div className="df-empty-lines">
-                {Array.from({length: 20}).map((_,i) => <div key={i} className="df-empty-line" />)}
-              </div>
-              <div className="df-empty-hint">
-                <span className="df-empty-icon">{activePage.template?.icon || "📄"}</span>
-                <span>Bu sayfa henüz fotoğraflanmadı</span>
-                <button className="df-photo-cta" onClick={() => { setActivePage(null); handleUploadPage(); }}>
-                  📸 Fotoğrafla
-                </button>
-              </div>
-            </div>
+
+            {/* Sayfa numarası */}
+            <div className="df-page-number">— {activePage.page_no} —</div>
+
+            {/* Sayfa köşe kıvrımı */}
+            <div className="df-page-curl" />
+          </div>
+
+          {/* Çevirme butonları */}
+          {curIdx > 0 && (
+            <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1, "left")}>‹</button>
           )}
+          {curIdx < allPagesForDetail.length - 1 && (
+            <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1, "right")}>›</button>
+          )}
+        </div>
+
+        {/* OCR alan — defterin dışında */}
+        <div className="df-ocr-area">
 
           {/* OCR / El yazısı transkripsiyon */}
           {!activePage.is_empty && (
@@ -2944,15 +2970,7 @@ setNewJournalSno(""); setNewJournalTheme("");
             </div>
           )}
         </div>
-        </div>{/* df-content-wrap end */}
-
-        {/* Sayfa çevirme okları */}
-        {curIdx > 0 && (
-          <button className="df-nav df-nav-prev" onClick={() => goTo(curIdx - 1, "left")}>‹</button>
-        )}
-        {curIdx < allPagesForDetail.length - 1 && (
-          <button className="df-nav df-nav-next" onClick={() => goTo(curIdx + 1, "right")}>›</button>
-        )}
+        </div>{/* df-ocr-area end */}
 
         {/* Alt thumbnail şeridi */}
         <div className="df-thumbstrip">
@@ -4744,21 +4762,21 @@ const styles = `
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 44px; height: 44px;
+    width: 40px; height: 40px;
     border-radius: 50%;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(0,0,0,0.1);
     color: var(--text2);
-    font-size: 20px;
+    font-size: 22px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     z-index: 10;
     transition: all 0.2s;
-    box-shadow: var(--shadow);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
-  .df-nav:hover { border-color:var(--accent); color:var(--accent); background:var(--surface2); }
-  .df-nav-prev { left: 8px; }
-  .df-nav-next { right: 8px; }
+  .df-nav:hover { border-color:var(--accent); color:var(--accent); background:white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .df-nav-prev { left: -8px; }
+  .df-nav-next { right: -8px; }
 
   /* Thumbnail strip */
   .df-thumbstrip {
@@ -4790,18 +4808,160 @@ const styles = `
   .df-thumb-num { position:absolute; bottom:2px; right:3px; font-size:7px; color:var(--text3); font-weight:600; }
   .df-thumb-bm { position:absolute; top:1px; left:2px; font-size:7px; }
 
-  .flip-anim-right, .flip-anim-left { /* unused */ }
+  .flip-anim-right, .flip-anim-left { display:none; }
   .flip-anim-right::after, .flip-anim-left::after { display: none; }
 
   /* ═══════════════════════════════════════════════════════
-     DEFTER SAYFA ÇEVİRME
+     DEFTER GÖRÜNÜMÜ
      ═══════════════════════════════════════════════════════ */
-  .df-content-wrap {
+  .df-book {
     flex: 1;
-    overflow: hidden;
+    display: flex;
     position: relative;
+    margin: 12px;
+    perspective: 2000px;
+    min-height: 300px;
   }
 
+  /* Sol cilt */
+  .df-book-spine {
+    width: 14px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.15), rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.02));
+    border-radius: 3px 0 0 3px;
+    flex-shrink: 0;
+    box-shadow: inset -2px 0 6px rgba(0,0,0,0.1);
+  }
+
+  /* Sayfa */
+  .df-book-page {
+    flex: 1;
+    background: #fdfcfa;
+    border-radius: 0 6px 6px 0;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+      3px 3px 10px rgba(0,0,0,0.08),
+      1px 1px 3px rgba(0,0,0,0.05),
+      inset 0 0 60px rgba(0,0,0,0.02);
+    transform-origin: left center;
+    transform-style: preserve-3d;
+  }
+
+  /* Kağıt dokusu */
+  .df-book-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Kağıt çizgileri */
+  .df-page-lines {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      rgba(0,0,0,0.04) 27px,
+      rgba(0,0,0,0.04) 28px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Sol kenar kırmızı çizgi */
+  .df-page-lines::before {
+    content: '';
+    position: absolute;
+    left: 36px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: rgba(220,80,80,0.15);
+    z-index: 0;
+  }
+
+  .df-page-body {
+    flex: 1;
+    padding: 16px 16px 16px 44px;
+    position: relative;
+    z-index: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .df-page-number {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: rgba(0,0,0,0.25);
+    padding: 8px;
+    position: relative;
+    z-index: 1;
+    letter-spacing: 2px;
+  }
+
+  /* Sağ alt köşe kıvrımı */
+  .df-page-curl {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06));
+    border-radius: 0 0 6px 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Sayfa gölge — üst üste binmiş sayfalar hissi */
+  .df-book-page::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; right: -1px;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    background: #f5f2ed;
+    border-radius: 0 6px 6px 0;
+    z-index: -1;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.04);
+  }
+
+  /* ═══ SAYFA ÇEVİRME ANİMASYONU ═══ */
+  
+  /* İleri — sayfa sol kenarından kıvrılarak sola döner */
+  .page-turning-right {
+    animation: bookTurnRight 0.6s ease-in-out;
+  }
+  @keyframes bookTurnRight {
+    0%   { transform: rotateY(0deg); box-shadow: 3px 3px 10px rgba(0,0,0,0.08); }
+    30%  { transform: rotateY(-45deg); box-shadow: 8px 4px 20px rgba(0,0,0,0.15); }
+    50%  { transform: rotateY(-90deg); box-shadow: 0 4px 10px rgba(0,0,0,0.1); opacity: 0.5; }
+    51%  { transform: rotateY(-90deg); opacity: 0; }
+    100% { transform: rotateY(0deg); box-shadow: 3px 3px 10px rgba(0,0,0,0.08); opacity: 1; }
+  }
+
+  /* Geri — sayfa sağ kenarından kıvrılarak sağa döner */
+  .page-turning-left {
+    animation: bookTurnLeft 0.6s ease-in-out;
+  }
+  @keyframes bookTurnLeft {
+    0%   { transform: rotateY(0deg); box-shadow: 3px 3px 10px rgba(0,0,0,0.08); }
+    30%  { transform: rotateY(45deg); box-shadow: -8px 4px 20px rgba(0,0,0,0.15); }
+    50%  { transform: rotateY(90deg); box-shadow: 0 4px 10px rgba(0,0,0,0.1); opacity: 0.5; }
+    51%  { transform: rotateY(90deg); opacity: 0; }
+    100% { transform: rotateY(0deg); box-shadow: 3px 3px 10px rgba(0,0,0,0.08); opacity: 1; }
+  }
+
+  /* OCR alanı — defterin altında */
+  .df-ocr-area {
+    padding: 0 12px 12px;
+  }
+
+  .df-content-wrap { display: contents; }
   .df-content {
     flex: 1;
     display: flex;
@@ -4809,31 +4969,6 @@ const styles = `
     padding: 16px;
     overflow-y: auto;
     gap: 16px;
-    perspective: 1200px;
-    transform-style: preserve-3d;
-    min-height: 100%;
-  }
-
-  /* İleri — sayfa sağ kenarından kıvrılarak sola döner */
-  .df-turn-right {
-    animation: turnRight 0.5s ease-in-out;
-  }
-  @keyframes turnRight {
-    0%   { transform: rotateY(0deg); opacity: 1; }
-    50%  { transform: rotateY(-90deg); opacity: 0; }
-    51%  { transform: rotateY(90deg); opacity: 0; }
-    100% { transform: rotateY(0deg); opacity: 1; }
-  }
-
-  /* Geri — sayfa sol kenarından kıvrılarak sağa döner */
-  .df-turn-left {
-    animation: turnLeft 0.5s ease-in-out;
-  }
-  @keyframes turnLeft {
-    0%   { transform: rotateY(0deg); opacity: 1; }
-    50%  { transform: rotateY(90deg); opacity: 0; }
-    51%  { transform: rotateY(-90deg); opacity: 0; }
-    100% { transform: rotateY(0deg); opacity: 1; }
   }
   @keyframes shadowFade { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 1; } }
 
