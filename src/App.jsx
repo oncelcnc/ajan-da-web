@@ -2804,7 +2804,7 @@ setNewJournalSno(""); setNewJournalTheme("");
           setActivePage(allPagesForDetail[idx]);
           setIsFlipping(false);
           setFlipDir(null);
-        }, 400);
+        }, 600);
       }
     };
 
@@ -4524,6 +4524,8 @@ const styles = `
     padding: 16px;
     overflow-y: auto;
     gap: 16px;
+    perspective: 1200px;
+    transform-style: preserve-3d;
   }
 
   .df-photo-wrap {
@@ -4793,10 +4795,26 @@ const styles = `
   .df-thumb-num { position:absolute; bottom:2px; right:3px; font-size:7px; color:var(--text3); font-weight:600; }
   .df-thumb-bm { position:absolute; top:1px; left:2px; font-size:7px; }
 
-  .flip-anim-right { animation: flipRight 0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-  .flip-anim-left  { animation: flipLeft  0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-  @keyframes flipRight { 0%{opacity:1;transform:translateX(0)} 40%{opacity:0.3;transform:translateX(-30px)} 60%{opacity:0;transform:translateX(30px)} 100%{opacity:1;transform:translateX(0)} }
-  @keyframes flipLeft  { 0%{opacity:1;transform:translateX(0)} 40%{opacity:0.3;transform:translateX(30px)} 60%{opacity:0;transform:translateX(-30px)} 100%{opacity:1;transform:translateX(0)} }
+  .flip-anim-right { animation: pageFlipRight 0.6s cubic-bezier(0.4,0,0.2,1) forwards; transform-style: preserve-3d; }
+  .flip-anim-left  { animation: pageFlipLeft  0.6s cubic-bezier(0.4,0,0.2,1) forwards; transform-style: preserve-3d; }
+
+  @keyframes pageFlipRight {
+    0%   { transform: perspective(1200px) rotateY(0deg); transform-origin: left center; opacity:1; filter: brightness(1); }
+    30%  { transform: perspective(1200px) rotateY(-25deg); transform-origin: left center; opacity:1; filter: brightness(0.85); box-shadow: inset -30px 0 40px rgba(0,0,0,0.15); }
+    50%  { transform: perspective(1200px) rotateY(-90deg); transform-origin: left center; opacity:0.6; filter: brightness(0.7); }
+    51%  { transform: perspective(1200px) rotateY(90deg); transform-origin: right center; opacity:0; }
+    75%  { transform: perspective(1200px) rotateY(20deg); transform-origin: right center; opacity:0.8; filter: brightness(0.9); }
+    100% { transform: perspective(1200px) rotateY(0deg); transform-origin: right center; opacity:1; filter: brightness(1); }
+  }
+
+  @keyframes pageFlipLeft {
+    0%   { transform: perspective(1200px) rotateY(0deg); transform-origin: right center; opacity:1; filter: brightness(1); }
+    30%  { transform: perspective(1200px) rotateY(25deg); transform-origin: right center; opacity:1; filter: brightness(0.85); box-shadow: inset 30px 0 40px rgba(0,0,0,0.15); }
+    50%  { transform: perspective(1200px) rotateY(90deg); transform-origin: right center; opacity:0.6; filter: brightness(0.7); }
+    51%  { transform: perspective(1200px) rotateY(-90deg); transform-origin: left center; opacity:0; }
+    75%  { transform: perspective(1200px) rotateY(-20deg); transform-origin: left center; opacity:0.8; filter: brightness(0.9); }
+    100% { transform: perspective(1200px) rotateY(0deg); transform-origin: left center; opacity:1; filter: brightness(1); }
+  }
 
   .flip-anim-right::after, .flip-anim-left::after { display: none; }
   @keyframes shadowFade { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 1; } }
