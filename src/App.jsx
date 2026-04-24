@@ -2850,6 +2850,24 @@ setNewJournalSno(""); setNewJournalTheme("");
 
         {/* Sayfa içeriği */}
         <div className="df-content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          
+          {/* Fotoğraf */}
+          {activePage.image_url ? (
+            <div className="df-photo-wrap" onClick={() => setLightboxImg(`${API}${activePage.image_url}`)}>
+              <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
+              <div className="df-photo-zoom-hint">🔍 Büyütmek için tıkla</div>
+            </div>
+          ) : (
+            <div className="df-empty-page">
+              <div className="df-empty-hint">
+                <span className="df-empty-icon">{activePage.template?.icon || "📄"}</span>
+                <span>Bu sayfa henüz fotoğraflanmadı</span>
+                <button className="df-photo-cta" onClick={() => { setActivePage(null); handleUploadPage(); }}>
+                  📸 Fotoğrafla
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* OCR / El yazısı transkripsiyon */}
           {!activePage.is_empty && (
@@ -5154,6 +5172,22 @@ const styles = `
   }
   .chat-send:hover { background: var(--accent2); }
   .chat-send:disabled { opacity: 0.5; }
+
+  .chat-input-row { display:flex; gap:8px; padding:10px 16px; background:var(--surface); border-top:1px solid var(--border); }
+  .chat-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:32px; color:var(--text3); text-align:center; }
+  .chat-empty-icon { font-size:40px; }
+  .chat-suggestions { display:flex; flex-direction:column; gap:6px; width:100%; max-width:280px; }
+  .chat-suggestion { padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:13px; color:var(--text2); cursor:pointer; text-align:left; transition:all 0.2s; }
+  .chat-suggestion:hover { border-color:var(--accent); color:var(--accent); }
+  .chat-typing { font-style:italic; opacity:0.7; }
+
+  .friends-invite-btn { padding:8px 16px; background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-xs); font-family:'Montserrat',sans-serif; font-size:13px; font-weight:600; cursor:pointer; }
+  .friend-row { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:6px; }
+  .friend-sno { font-size:13px; font-weight:600; color:var(--text); flex:1; }
+  .friend-actions { display:flex; gap:6px; }
+  .friend-btn { padding:6px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-xs); font-family:'Montserrat',sans-serif; font-size:11px; color:var(--text2); cursor:pointer; }
+  .friend-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .invite-code { padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); text-align:center; font-family:monospace; font-size:14px; color:var(--accent); word-break:break-all; margin-bottom:8px; }
 
   /* ═══════════════════════════════════════════════════════
      AUTH SCREENS
