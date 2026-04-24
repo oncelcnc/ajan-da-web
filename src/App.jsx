@@ -2953,6 +2953,23 @@ setNewJournalSno(""); setNewJournalTheme("");
           </div>
         </div>
 
+        {/* Top nav tabs */}
+        <div className="top-nav">
+          {[
+            {id:"pages",   icon:"📖", label:"Sayfalar"},
+            {id:"stats",   icon:"📊", label:"İstatistik"},
+            {id:"chat",    icon:"🤖", label:"AI"},
+            {id:"friends", icon:"👥", label:"Arkadaş"},
+            {id:"settings",icon:"⚙️", label:"Ayarlar"},
+          ].map(t => (
+            <button key={t.id} className={`tnav-btn ${activeTab===t.id?"active":""}`}
+              onClick={() => setActiveTab(t.id)}>
+              <span className="tnav-icon">{t.icon}</span>
+              <span className="tnav-label">{t.label}</span>
+            </button>
+          ))}
+        </div>
+
         {error && <div className="error-msg" style={{margin:"0 16px 8px"}}>{error}</div>}
 
         {/* Arama + Filtre */}
@@ -3061,23 +3078,6 @@ setNewJournalSno(""); setNewJournalTheme("");
             <span className="streak-badge">🔥 {streakData.current_streak} gün</span>
           )}
           {isPremium && <span className="premium-badge">⭐ Premium</span>}
-        </div>
-
-        {/* Bottom nav */}
-        <div className="bottom-nav">
-          {[
-            {id:"pages",   icon:"📖", label:"Sayfalar"},
-            {id:"stats",   icon:"📊", label:"İstatistik"},
-            {id:"chat",    icon:"🤖", label:"AI"},
-            {id:"friends", icon:"👥", label:"Arkadaş"},
-            {id:"settings",icon:"⚙️", label:"Ayarlar"},
-          ].map(t => (
-            <button key={t.id} className={`bnav-btn ${activeTab===t.id?"active":""}`}
-              onClick={() => setActiveTab(t.id)}>
-              <span className="bnav-icon">{t.icon}</span>
-              <span className="bnav-label">{t.label}</span>
-            </button>
-          ))}
         </div>
 
         {/* Tab içerikleri */}
@@ -4591,34 +4591,40 @@ const styles = `
   .empty-page-photo { padding:40px; text-align:center; color:var(--text3); font-size:13px; background:var(--surface); border-radius:var(--radius); margin:12px 16px; border:1px solid var(--border); }
 
   /* ═══════════════════════════════════════════════════════
-     BOTTOM TABS
+     TOP NAV TABS
      ═══════════════════════════════════════════════════════ */
-  .bottom-tabs {
+  .top-nav {
     display: flex;
     background: var(--surface);
-    border-top: 1px solid var(--border);
-    padding: 6px 0 8px;
+    border-bottom: 1px solid var(--border);
+    padding: 0;
     position: sticky;
-    bottom: 0;
+    top: 0;
     z-index: 50;
   }
-  .bottom-tab {
+  .tnav-btn {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    padding: 6px 4px;
+    gap: 2px;
+    padding: 10px 4px 8px;
     background: none;
     border: none;
+    border-bottom: 2px solid transparent;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     transition: all 0.2s;
   }
-  .bottom-tab-icon { font-size: 18px; transition: transform 0.2s; }
-  .bottom-tab-label { font-size: 9px; color: var(--text3); font-weight: 500; letter-spacing: 0.5px; }
-  .bottom-tab.active .bottom-tab-icon { transform: scale(1.15); }
-  .bottom-tab.active .bottom-tab-label { color: var(--accent); font-weight: 700; }
+  .tnav-btn:hover { background: var(--surface2); }
+  .tnav-btn.active { border-bottom-color: var(--accent); background: var(--accent-glow); }
+  .tnav-icon { font-size: 16px; transition: transform 0.2s; }
+  .tnav-label { font-size: 9px; color: var(--text3); font-weight: 500; letter-spacing: 0.5px; }
+  .tnav-btn.active .tnav-icon { transform: scale(1.1); }
+  .tnav-btn.active .tnav-label { color: var(--accent); font-weight: 700; }
+
+  .bottom-tabs { display: none; }
+  .bottom-tab { display: none; }
 
   /* ═══════════════════════════════════════════════════════
      TABS CONTENT
