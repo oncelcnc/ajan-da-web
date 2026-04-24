@@ -2876,14 +2876,19 @@ setNewJournalSno(""); setNewJournalTheme("");
                     setAiLoading(true);
                     try {
                       const res = await fetch(`${API}/ai/ocr?serial_no=${current.serial_no}&page_no=${activePage.page_no}`, { method: "POST" });
+                      if (!res.ok) {
+                        const errText = await res.text();
+                        setError(`OCR hatası (${res.status}): ${errText}`);
+                        setAiLoading(false);
+                        return;
+                      }
                       const data = await res.json();
                       if (data.ocr_text) {
                         setEditData(prev => ({ ...prev, _ai_ocr: data.ocr_text, _ai_ocr_editing: false }));
-                        // pages listesinde de güncelle
                         setPages(prev => prev.map(p => p.page_no === activePage.page_no ? { ...p, ocr_text: data.ocr_text } : p));
                         setActivePage(prev => ({ ...prev, ocr_text: data.ocr_text }));
                       }
-                    } catch(e) { console.error(e); setError("AI OCR hatası"); }
+                    } catch(e) { console.error(e); setError("AI OCR bağlantı hatası: " + e.message); }
                     setAiLoading(false);
                   }} disabled={aiLoading}>
                     {aiLoading ? "⏳ Okunuyor..." : (activePage.ocr_text ? "🔄 Tekrar Oku" : "🤖 AI ile Oku")}
