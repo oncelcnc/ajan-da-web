@@ -2860,15 +2860,71 @@ setNewJournalSno(""); setNewJournalTheme("");
             </div>
           )}
 
-          {/* OCR text */}
-          {!activePage.is_empty && activePage.ocr_text && (
-            <div className="df-ocr">
-              <div className="df-ocr-label">✏️ El Yazısı Notları</div>
-              <OcrTextEditor
-                tplType={tplType}
-                data={editData || activePage.template_data}
-                onSave={handleSaveEdit}
-              />
+          {/* OCR / El yazısı transkripsiyon */}
+          {!activePage.is_empty && (
+            <div className="df-ocr-card">
+              <div className="df-ocr-header">
+                <span className="df-ocr-title">📝 Sayfada Yazanlar</span>
+                <button className="df-ocr-ai-btn" onClick={async () => {
+                  if (!activePage.image_url) return;
+                  setAiLoading(true);
+                  try {
+                    const imgRes = await fetch(`${API}${activePage.image_url}`);
+                    const imgBlob = await imgRes.blob();
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      const base64 = reader.result.split(",")[1];
+                      const mediaType = imgBlob.type || "image/jpeg";
+                      const res = await fetch("https://api.anthropic.com/v1/messages", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          model: "claude-sonnet-4-20250514",
+                          max_tokens: 1000,
+                          messages: [{
+                            role: "user",
+                            content: [
+                              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+                              { type: "text", text: "Bu ajanda sayfasında el yazısıyla ne yazıyor? Türkçe olarak düzgün bir şekilde transkribe et. Sadece yazılanları yaz, açıklama ekleme." }
+                            ]
+                          }]
+                        })
+                      });
+                      const data = await res.json();
+                      const text = data.content?.map(c => c.text || "").join("\n") || "Okunamadı";
+                      setEditData(prev => ({ ...prev, _ai_ocr: text }));
+                    };
+                    reader.readAsDataURL(imgBlob);
+                  } catch(e) { console.error(e); setEditData(prev => ({ ...prev, _ai_ocr: "Hata oluştu" })); }
+                  finally { setAiLoading(false); }
+                }} disabled={aiLoading}>
+                  {aiLoading ? "⏳ Okunuyor..." : "🤖 AI ile Oku"}
+                </button>
+              </div>
+              
+              {/* AI OCR sonucu */}
+              {editData?._ai_ocr && (
+                <div className="df-ocr-result">
+                  <div className="df-ocr-result-label">🤖 AI Transkripsiyon</div>
+                  <div className="df-ocr-result-text">{editData._ai_ocr}</div>
+                </div>
+              )}
+
+              {/* Mevcut OCR text */}
+              {activePage.ocr_text && (
+                <div className="df-ocr-existing">
+                  <div className="df-ocr-result-label">📋 Otomatik OCR</div>
+                  <OcrTextEditor
+                    tplType={tplType}
+                    data={editData || activePage.template_data}
+                    onSave={handleSaveEdit}
+                  />
+                </div>
+              )}
+
+              {!activePage.ocr_text && !editData?._ai_ocr && (
+                <div className="df-ocr-empty">Henüz metin okunmadı. "AI ile Oku" butonuna tıklayarak el yazısını okutabilirsin.</div>
+              )}
             </div>
           )}
         </div>
@@ -4504,6 +4560,80 @@ const styles = `
   .df-photo-cta:hover { background:var(--accent2); }
 
   /* OCR */
+  .df-ocr-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .df-ocr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .df-ocr-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .df-ocr-ai-btn {
+    padding: 7px 14px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(212,165,116,0.3);
+    border-radius: 20px;
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .df-ocr-ai-btn:hover { background: rgba(212,165,116,0.25); border-color: var(--accent); }
+  .df-ocr-ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .df-ocr-result {
+    background: var(--surface2);
+    border: 1px solid rgba(212,165,116,0.15);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    animation: fadeIn 0.3s ease;
+  }
+  .df-ocr-result-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .df-ocr-result-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .df-ocr-existing {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+  }
+
+  .df-ocr-empty {
+    font-size: 12px;
+    color: var(--text3);
+    text-align: center;
+    padding: 12px;
+    line-height: 1.7;
+  }
+
   .df-ocr {
     background: var(--surface);
     border-radius: var(--radius);
