@@ -2801,17 +2801,14 @@ setNewJournalSno(""); setNewJournalTheme("");
       if (idx >= 0 && idx < allPagesForDetail.length && !isFlipping) {
         const d = dir || (idx > curIdx ? "right" : "left");
         setFlipDir(d);
-        setFlipOldPage(activePage); // mevcut sayfayı kaydet
         setIsFlipping(true);
-        // Yarısında yeni sayfayı göster
         setTimeout(() => {
           setActivePage(allPagesForDetail[idx]);
-        }, 350);
+        }, 250);
         setTimeout(() => {
           setIsFlipping(false);
           setFlipDir(null);
-          setFlipOldPage(null);
-        }, 700);
+        }, 500);
       }
     };
 
@@ -2851,22 +2848,9 @@ setNewJournalSno(""); setNewJournalTheme("");
           </div>
         </div>
 
-        {/* Sayfa içeriği — defter sayfası */}
-        <div className="df-book-area">
-          {/* Kıvrılan eski sayfa */}
-          {isFlipping && flipOldPage && (
-            <div className={`df-page-flipping df-flip-${flipDir}`}>
-              {flipOldPage.image_url ? (
-                <img src={`${API}${flipOldPage.image_url}`} alt="" className="df-flip-img" />
-              ) : (
-                <div className="df-flip-empty">{flipOldPage.template?.icon || "📄"}</div>
-              )}
-            </div>
-          )}
-
-          {/* Mevcut sayfa (altta) */}
-          <div className={`df-content ${isFlipping ? "df-page-reveal" : ""}`}
-            onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        {/* Sayfa içeriği */}
+        <div className="df-content-wrap" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className={`df-content ${isFlipping ? `df-turn-${flipDir}` : ""}`}>
           {activePage.image_url ? (
             <div className="df-photo-wrap" onClick={() => setLightboxImg(`${API}${activePage.image_url}`)}>
               <img src={`${API}${activePage.image_url}`} alt="sayfa" className="df-photo" />
@@ -2960,7 +2944,7 @@ setNewJournalSno(""); setNewJournalTheme("");
             </div>
           )}
         </div>
-        </div>{/* df-book-area end */}
+        </div>{/* df-content-wrap end */}
 
         {/* Sayfa çevirme okları */}
         {curIdx > 0 && (
@@ -4538,16 +4522,6 @@ const styles = `
   .df-action-btn.active { background:var(--accent-glow); border-color:var(--accent); }
   .df-photo-btn { background:var(--accent); border-color:var(--accent); color:var(--bg); }
 
-  .df-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 16px;
-    overflow-y: auto;
-    gap: 16px;
-    perspective: 1200px;
-    transform-style: preserve-3d;
-  }
 
   .df-photo-wrap {
     width: 100%;
@@ -4816,132 +4790,51 @@ const styles = `
   .df-thumb-num { position:absolute; bottom:2px; right:3px; font-size:7px; color:var(--text3); font-weight:600; }
   .df-thumb-bm { position:absolute; top:1px; left:2px; font-size:7px; }
 
-  .flip-anim-right, .flip-anim-left { /* disabled, using new system */ }
+  .flip-anim-right, .flip-anim-left { /* unused */ }
+  .flip-anim-right::after, .flip-anim-left::after { display: none; }
 
   /* ═══════════════════════════════════════════════════════
      DEFTER SAYFA ÇEVİRME
      ═══════════════════════════════════════════════════════ */
-  .df-book-area {
+  .df-content-wrap {
     flex: 1;
-    position: relative;
     overflow: hidden;
-    perspective: 1800px;
+    position: relative;
   }
 
-  /* Kıvrılan eski sayfa — üstte */
-  .df-page-flipping {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    background: #fdfcfa;
-    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  .df-content {
+    flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     padding: 16px;
-    backface-visibility: hidden;
-    box-shadow: -4px 0 16px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    gap: 16px;
+    perspective: 1200px;
+    transform-style: preserve-3d;
+    min-height: 100%;
   }
 
-  .df-page-flipping::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to left, rgba(0,0,0,0.06) 0%, transparent 15%);
-    pointer-events: none;
+  /* İleri — sayfa sağ kenarından kıvrılarak sola döner */
+  .df-turn-right {
+    animation: turnRight 0.5s ease-in-out;
+  }
+  @keyframes turnRight {
+    0%   { transform: rotateY(0deg); opacity: 1; }
+    50%  { transform: rotateY(-90deg); opacity: 0; }
+    51%  { transform: rotateY(90deg); opacity: 0; }
+    100% { transform: rotateY(0deg); opacity: 1; }
   }
 
-  .df-flip-img {
-    max-width: 260px;
-    max-height: 340px;
-    object-fit: cover;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+  /* Geri — sayfa sol kenarından kıvrılarak sağa döner */
+  .df-turn-left {
+    animation: turnLeft 0.5s ease-in-out;
   }
-
-  .df-flip-empty {
-    font-size: 48px;
-    opacity: 0.3;
+  @keyframes turnLeft {
+    0%   { transform: rotateY(0deg); opacity: 1; }
+    50%  { transform: rotateY(90deg); opacity: 0; }
+    51%  { transform: rotateY(-90deg); opacity: 0; }
+    100% { transform: rotateY(0deg); opacity: 1; }
   }
-
-  /* Sağa geçiş: sayfa sağ kenarından sola kıvrılır (ileri) */
-  .df-flip-right {
-    transform-origin: left center;
-    animation: bookPageRight 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  }
-
-  /* Sola geçiş: sayfa sol kenarından sağa kıvrılır (geri) */
-  .df-flip-left {
-    transform-origin: right center;
-    animation: bookPageLeft 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  }
-
-  @keyframes bookPageRight {
-    0% {
-      transform: rotateY(0deg);
-      box-shadow: -4px 0 16px rgba(0,0,0,0.1);
-    }
-    40% {
-      transform: rotateY(-55deg) skewY(2deg);
-      box-shadow: -12px 0 30px rgba(0,0,0,0.15);
-    }
-    70% {
-      transform: rotateY(-120deg) skewY(1deg);
-      box-shadow: -8px 0 20px rgba(0,0,0,0.08);
-      opacity: 0.7;
-    }
-    100% {
-      transform: rotateY(-180deg);
-      box-shadow: none;
-      opacity: 0;
-    }
-  }
-
-  @keyframes bookPageLeft {
-    0% {
-      transform: rotateY(0deg);
-      box-shadow: 4px 0 16px rgba(0,0,0,0.1);
-    }
-    40% {
-      transform: rotateY(55deg) skewY(-2deg);
-      box-shadow: 12px 0 30px rgba(0,0,0,0.15);
-    }
-    70% {
-      transform: rotateY(120deg) skewY(-1deg);
-      box-shadow: 8px 0 20px rgba(0,0,0,0.08);
-      opacity: 0.7;
-    }
-    100% {
-      transform: rotateY(180deg);
-      box-shadow: none;
-      opacity: 0;
-    }
-  }
-
-  /* Yeni sayfa alttan ortaya çıkar */
-  .df-page-reveal {
-    animation: pageReveal 0.7s ease forwards;
-  }
-
-  @keyframes pageReveal {
-    0% { opacity: 0.5; transform: scale(0.97); }
-    40% { opacity: 0.7; }
-    100% { opacity: 1; transform: scale(1); }
-  }
-
-  .df-page-flipping::before {
-    content: '';
-    position: absolute;
-    top: 0; bottom: 0;
-    width: 20px;
-    background: linear-gradient(to right, rgba(0,0,0,0.08), transparent);
-    z-index: 1;
-    pointer-events: none;
-  }
-  .df-flip-right::before { left: 0; }
-  .df-flip-left::before { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.08), transparent); }
-
-  .flip-anim-right::after, .flip-anim-left::after { display: none; }
   @keyframes shadowFade { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 1; } }
 
   /* ═══════════════════════════════════════════════════════
