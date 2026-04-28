@@ -1505,7 +1505,7 @@ const res = await fetch(endpoint, {
         const jr = await fetch(`${API}/user/journals/${loginUsername}?password=${loginPassword}`);
         const jd = await jr.json();
         if (jd.journals?.length > 0) {
-          saveJournals(jd.journals);
+          saveJournals(jd.journals.map(j => ({...j, username: loginUsername})));
           const updatedWithCounts = await Promise.all(jd.journals.map(async (j) => {
             try {
               const sr = await fetch(`${API}/stats?serial_no=${j.serial_no}`);
@@ -1935,6 +1935,10 @@ const advancedSearch = async () => {
       if (!res.ok) { setError(data.detail || "Hata"); setLoading(false); return; }
       const updated = { ...journal, template: data.template, theme_color: data.theme_color };
       saveCurrent(updated);
+       if (data.username) {
+        setLoggedUsername(data.username);
+        localStorage.setItem("ajan_username", data.username);
+      }
       await loadPages(updated);
       loadStreak(updated.serial_no);
       loadYearlyReport(updated.serial_no);
@@ -2611,8 +2615,10 @@ disabled={!newJournalSno || !newJournalTheme || loading}
             if (!newJournalSno || !loggedUsername) return;
             setLoading(true);
             try {
-              const res = await fetch(`${API}/user/add_journal/${loggedUsername}`, {
-                method: "POST",
+const username = loggedUsername || current?.username || localStorage.getItem("ajan_username");
+              if (!username) { alert("Kullanıcı bilgisi bulunamadı. Tekrar giriş yapın."); setLoading(false); return; }
+              const res = await fetch(`${API}/user/add_journal/${username}`, {
+                                method: "POST",
                 headers: {"Content-Type":"application/json"},
                 body: JSON.stringify({
   serial_no: newJournalSno,
