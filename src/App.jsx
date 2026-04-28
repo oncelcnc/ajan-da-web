@@ -1433,24 +1433,22 @@ useEffect(() => {
     setLoading(false);
   };
   // Kullanıcı adı/şifre ile kayıt
-const handleRegister = async () => {
-    if (loggedUsername) {
-      if (!regPassword || !regSerialNo) { setError("Tüm alanları doldurun"); return; }
-    } else {
-      if (!regUsername || !regPassword || !regSerialNo) { setError("Tüm alanları doldurun"); return; }
+  const handleRegister = async () => {
+    if (!regUsername || !regPassword || !regSerialNo) {
+      setError("Tüm alanları doldurun"); return;
     }
     setLoading(true); setError("");
-    const effectiveUsername = loggedUsername || regUsername;
     try {
-    const endpoint = loggedUsername
-      ? `${API}/user/add_journal/${loggedUsername}`
-      : `${API}/user/register`;
+    // Eğer zaten giriş yapılmışsa, mevcut hesaba ajanda ekle
+const endpoint = loggedUsername
+  ? `${API}/user/add_journal/${loggedUsername}`
+  : `${API}/user/register`;
 
 const res = await fetch(endpoint, {
   method: "POST",
   headers: {"Content-Type": "application/json"},
   body: JSON.stringify({
-    username: effectiveUsername,
+    username: regUsername || loggedUsername,
     password: regPassword,
     serial_no: regSerialNo,
     theme_id: regTheme,
@@ -1459,15 +1457,13 @@ const res = await fetch(endpoint, {
 });
       const d = await res.json();
       if (!res.ok) { setError(d.detail || "Kayıt hatası"); setLoading(false); return; }
-      if (!loggedUsername) {
-        localStorage.setItem("ajan_username", regUsername);
-        setLoggedUsername(regUsername);
-      }
+      localStorage.setItem("ajan_username", regUsername);
+      setLoggedUsername(regUsername);
       const journal = {
         serial_no: d.serial_no, theme_id: d.theme_id,
         theme_name: d.theme_name, theme_color: d.theme_color,
         pin: regPassword.slice(0,6), template: d.template,
-        username: effectiveUsername
+        username: regUsername
       };
       const updated = [journal, ...journals.filter(j => j.serial_no !== journal.serial_no)];
       saveJournals(updated);
@@ -2137,17 +2133,14 @@ const advancedSearch = async () => {
           <div className="auth-logo">AJAN<span>-DA</span></div>
         </div>
         <div className="auth-body">
-           
-          <div className="auth-title">{loggedUsername ? "Yeni Ajanda Ekle" : "Yeni Ajanda Tanımla"}</div>
-          <div className="auth-subtitle">{loggedUsername ? `@${loggedUsername} hesabına yeni ajanda eklenecek` : "Ajandanı sisteme ekle ve kullanıcı hesabı oluştur"}</div>
+          <div className="auth-title">Yeni Ajanda Tanımla</div>
+          <div className="auth-subtitle">Ajandanı sisteme ekle ve kullanıcı hesabı oluştur</div>
 
-          {!loggedUsername && (
           <div className="auth-field">
             <label>Kullanıcı Adı</label>
             <input className="auth-input" placeholder="örn: ahmet_ajanda"
               value={regUsername} onChange={e => setRegUsername(e.target.value.toLowerCase())} />
           </div>
-          )}
           <div className="auth-field">
             <label>Şifre</label>
             <input className="auth-input" type="password" placeholder="En az 4 karakter"
